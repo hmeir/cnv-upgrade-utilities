@@ -73,14 +73,14 @@ VERSION_CATEGORIES = {
     0: VersionCategory(
         version_pattern="4.Y.0",
         upgrade_configs=[
-            UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite="FULL"),
+            UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite="UTS-FULL"),
         ]
     ),
     1: VersionCategory(
         version_pattern="4.Y.1",
         upgrade_configs=[
-            UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite="FULL"),
-            UpgradeConfig(UpgradeType.Z_STREAM, post_upgrade_suite="PUM"),
+            UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite="UTS-FULL"),
+            UpgradeConfig(UpgradeType.Z_STREAM, post_upgrade_suite="UTS-Marker"),
         ]
     ),
 }
@@ -89,7 +89,7 @@ VERSION_CATEGORIES = {
 DEFAULT_CATEGORY = VersionCategory(
     version_pattern="4.Y.2+",
     upgrade_configs=[
-        UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite="PUM"),
+        UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite="UTS-Marker"),
         UpgradeConfig(UpgradeType.Z_STREAM, post_upgrade_suite="NONE"),
         UpgradeConfig(UpgradeType.LATEST_Z, post_upgrade_suite="NONE"),
     ]
@@ -160,7 +160,7 @@ def categorize_version(target_version: Version) -> dict:
     # Add EUS upgrade for even minor versions at z=0
     if z == 0 and y % 2 == 0:
         upgrade_configs.append(
-            UpgradeConfig(UpgradeType.EUS, post_upgrade_suite="PUM")
+            UpgradeConfig(UpgradeType.EUS, post_upgrade_suite="UTS-Marker")
         )
     
     # Build upgrade entries with source versions

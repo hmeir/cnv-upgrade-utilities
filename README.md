@@ -46,23 +46,23 @@ The checklist tool categorizes the target version (`4.Y.z`) into three main buck
 
 | Upgrade Type | Source Version | Post-Upgrade Suite | Condition |
 |--------------|----------------|-------------------|-----------|
-| **Y Stream** | Latest `4.(Y-1).z` | `FULL` | Always |
-| **EUS** | Latest `4.(Y-2).z` | `PUM` | Only if `Y` is even |
+| **Y Stream** | Latest `4.(Y-1).z` | `UTS-FULL` | Always |
+| **EUS** | Latest `4.(Y-2).z` | `UTS-Marker` | Only if `Y` is even |
 
 ### 2. First Maintenance Release (Z = 1)
 *Target Pattern: `4.Y.1`*
 
 | Upgrade Type | Source Version | Post-Upgrade Suite |
 |--------------|----------------|-------------------|
-| **Y Stream** | Latest `4.(Y-1).z` | `FULL` |
-| **Z Stream** | Latest `4.Y.z` (typically `4.Y.0`) | `PUM` |
+| **Y Stream** | Latest `4.(Y-1).z` | `UTS-FULL` |
+| **Z Stream** | Latest `4.Y.z` (typically `4.Y.0`) | `UTS-Marker` |
 
 ### 3. Maintenance Releases (Z >= 2)
 *Target Pattern: `4.Y.2+`*
 
 | Upgrade Type | Source Version | Post-Upgrade Suite |
 |--------------|----------------|-------------------|
-| **Y Stream** | Latest `4.(Y-1).z` | `PUM` |
+| **Y Stream** | Latest `4.(Y-1).z` | `UTS-Marker` |
 | **Z Stream** | Latest `4.Y.z` | `NONE` |
 | **Latest Z** | `4.Y.0` | `NONE` |
 
@@ -71,8 +71,8 @@ The checklist tool categorizes the target version (`4.Y.z`) into three main buck
 - **Z Stream**: Upgrading within the same minor version (e.g., 4.20.0 -> 4.20.1).
 - **Latest Z**: Upgradeing within the same minor version, from 4.Y.0 (e.g 4.20.0 -> 4.20.2)
 - **EUS**: Extended Update Support, allowing skipping one minor version (e.g., 4.18 -> 4.20).
-- **FULL**: Full test suite.
-- **PUM**: Post Upgrade Marker (a reduced test suite).
+- **UTS-FULL**: Full test suite.
+- **UTS-Marker**: Post Upgrade Marker (a reduced test suite).
 
 
 ## Using the Release Checklist Tool
@@ -103,7 +103,7 @@ uv run python release_checklist_upgrade_lanes.py -v 4.20.2 -c stable
       "bundle_version": "v4.19.15.rhel9-18",
       "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1079024",
       "channel": "stable",
-      "post_upgrade_suite": "PUM"
+      "post_upgrade_suite": "UTS-Marker"
     },
     "Z stream": {
       "source_version": "v4.20.1",
