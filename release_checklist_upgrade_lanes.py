@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 from packaging.version import Version
-from upgrade_utils.version_explorer_utils import get_latest_stable_released_z_stream_info, get_version_explorer_url
+from upgrade_utils.version_explorer_utils import get_latest_stable_released_z_stream_info, get_version_explorer_url, get_build_info_by_version, extract_stable_channel_info
 
 LOGGER = logging.getLogger(__name__)
 
@@ -96,31 +96,40 @@ DEFAULT_CATEGORY = VersionCategory(
 )
 
 
-def create_upgrade_entry(config: UpgradeConfig, source_version: Optional[str] = None) -> dict:
+def create_upgrade_entry(config: UpgradeConfig, build_info: dict) -> dict:
     """Create upgrade type dictionary entry."""
     return {
-        "type": config.upgrade_type.display_name,
-        "source_version": source_version,
-        "post_upgrade_suite": config.post_upgrade_suite,
+        'source_version': build_info.get("version"),
+        'bundle_version': build_info.get("bundle_version"),
+        'iib': build_info.get("iib"),
+        'channel': build_info.get("channel"),
+        'post_upgrade_suite': config.post_upgrade_suite,
     }
 
 
-def fetch_source_version(target_version: Version, minor_offset: int) -> Optional[str]:
+def fetch_source_version(target_version: Version, minor_offset: int | None = None) -> Optional[dict]:
     """
-    Fetch latest stable source version for given minor offset.
-    
+    Fetch latest stable source version info for given minor offset.
+
     Args:
         target_version: Target version to upgrade to
         minor_offset: Offset to apply when fetching source version
-        
+
     Returns:
-        Source version string if found, None otherwise
+        Source version info dict if found, None otherwise
     """
     if minor_offset is None:
-        return f"v{target_version.major}.{target_version.minor}.0"
-    minor = f"v{target_version.major}.{target_version.minor + minor_offset}"
-    source_info = get_latest_stable_released_z_stream_info(minor_version=minor)
-    return source_info.get("version") if source_info else None
+        version = f"{target_version.major}.{target_version.minor}.0"
+        # For "latest z" type, return minimal info
+        build_info = get_build_info_by_version(
+            version=version,
+            errata_status="true"
+        )["successful_builds"][0]
+        source_info = extract_stable_channel_info(build_data=build_info, version=version, bundle_version_key="cnv_build")
+    else:
+        minor = f"v{target_version.major}.{target_version.minor + minor_offset}"
+        source_info = get_latest_stable_released_z_stream_info(minor_version=minor)
+    return source_info
 
 
 def categorize_version(target_version: Version) -> dict:
@@ -155,10 +164,10 @@ def categorize_version(target_version: Version) -> dict:
         )
     
     # Build upgrade entries with source versions
-    upgrade_lanes = [
-        create_upgrade_entry(config, fetch_source_version(target_version, config.upgrade_type.minor_offset))
+    upgrade_lanes = {
+        config.upgrade_type.display_name: create_upgrade_entry(config, fetch_source_version(target_version, config.upgrade_type.minor_offset))
         for config in upgrade_configs
-    ]
+    }
     return {
         "target_version": target_version,
         "upgrade_lanes": upgrade_lanes,

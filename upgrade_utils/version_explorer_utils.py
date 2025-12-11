@@ -62,6 +62,30 @@ def stable_channel_released_to_prod(channels: list[dict[str, str | bool]]) -> bo
     return any(item.get("channel") == "stable" and item.get("released_to_prod") for item in channels)
 
 
+def extract_stable_channel_info(build_data: dict, version: str, bundle_version_key: str) -> dict[str, str]:
+    """
+    Extract stable channel information from build data.
+
+    Args:
+        build_data: Dictionary containing channels list
+        version: Version string to include in result
+        bundle_version_key: Key to extract bundle_version from build_data
+
+    Returns:
+        Dictionary with version, bundle_version, iib, and channel
+    """
+    stable_build = next(
+        (build for build in build_data.get("channels", []) if build.get("channel") == "stable"), {}
+    )
+    assert stable_build, "No stable build found"
+    return {
+        "version": version,
+        "bundle_version": build_data[bundle_version_key],
+        "iib": stable_build["iib"],
+        "channel": stable_build["channel"],
+    }
+
+
 def get_latest_stable_released_z_stream_info(minor_version: str) -> dict[str, str] | None:
     builds = wait_for_version_explorer_response(
         api_end_point="GetBuildsWithErrata",
@@ -69,15 +93,19 @@ def get_latest_stable_released_z_stream_info(minor_version: str) -> dict[str, st
     )["builds"]
 
     latest_z_stream = None
+    source_build = None
     for build in builds:
         if build["errata_status"] == "SHIPPED_LIVE" and stable_channel_released_to_prod(channels=build["channels"]):
             build_version = Version(version=build["csv_version"])
             if latest_z_stream:
                 if build_version > latest_z_stream:
                     latest_z_stream = build_version
+                    source_build = build
             else:
                 latest_z_stream = build_version
-    return get_build_info_dict(version=str(latest_z_stream)) if latest_z_stream else None
+                source_build = build
+    assert latest_z_stream and source_build, "No stable latest z stream found"
+    return extract_stable_channel_info(build_data=source_build, version=source_build["csv_version"], bundle_version_key="version")
 
 
 def get_cnv_info_by_iib(iib: str) -> dict[str, str]:
@@ -90,6 +118,14 @@ def get_cnv_info_by_iib(iib: str) -> dict[str, str]:
         channel=build_info["channel"],
     )
 
+def get_build_info_by_version(version: str, errata_status: str = "true") -> dict[str, Any]:
+    query_string = f"version={version}"
+    if errata_status:
+        query_string = f"{query_string}&errata_status={errata_status}"
+    return wait_for_version_explorer_response(
+        api_end_point="GetSuccessfulBuildsByVersion",
+        query_string=query_string,
+    )
 
 def get_build_info_dict(version: str, channel: str = "stable") -> dict[str, str]:
     return {

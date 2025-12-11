@@ -54,7 +54,7 @@ Run the script by providing the target version using the `-v` (or `--target-vers
 
 **Basic Example:**
 ```bash
-uv run python release_checklist_upgrade_lanes.py -v 4.18.0
+uv run python release_checklist_upgrade_lanes.py -v 4.20.2
 ```
 
 ### Specifying a Channel
@@ -62,26 +62,37 @@ NOTE: still not fully supported
 You can optionally specify the release channel (default is `stable`):
 
 ```bash
-uv run python release_checklist_upgrade_lanes.py -v 4.18.0 -c candidate
+uv run python release_checklist_upgrade_lanes.py -v 4.20.2 -c stable
 ```
 
 ### Sample Output
 
 ```json
 {
-  "target_version": "4.18.0",
-  "upgrade_lanes": [
-    {
-      "type": "Y stream",
-      "source_version": "4.17.5",
-      "post_upgrade_suite": "FULL"
-    },
-    {
-      "type": "EUS",
-      "source_version": "4.16.8",
+  "target_version": "4.20.2",
+  "upgrade_lanes": {
+    "Y stream": {
+      "source_version": "v4.19.15",
+      "bundle_version": "v4.19.15.rhel9-18",
+      "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1079024",
+      "channel": "stable",
       "post_upgrade_suite": "PUM"
+    },
+    "Z stream": {
+      "source_version": "v4.20.1",
+      "bundle_version": "v4.20.1.rhel9-13",
+      "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1073045",
+      "channel": "stable",
+      "post_upgrade_suite": "NONE"
+    },
+    "latest z": {
+      "source_version": "4.20.0",
+      "bundle_version": "v4.20.0.rhel9-234",
+      "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1063267",
+      "channel": "stable",
+      "post_upgrade_suite": "NONE"
     }
-  ]
+  }
 }
 ```
 
@@ -115,8 +126,9 @@ The checklist tool categorizes the target version (`4.Y.z`) into three main buck
 | **Latest Z** | `4.Y.0` | `NONE` |
 
 ### Key Terms
-- **Y Stream**: Upgrading from the previous minor version (e.g., 4.17 -> 4.18).
-- **Z Stream**: Upgrading within the same minor version (e.g., 4.18.0 -> 4.18.1).
-- **EUS**: Extended Update Support, allowing skipping one minor version (e.g., 4.16 -> 4.18).
-- **PUM**: Post Upgrade Marker (a reduced test suite).
+- **Y Stream**: Upgrading from the previous minor version (e.g., 4.19 -> 4.20).
+- **Z Stream**: Upgrading within the same minor version (e.g., 4.20.0 -> 4.20.1).
+- **Latest Z**: Upgradeing within the same minor version, from 4.Y.0 (e.g 4.20.0 -> 4.20.2)
+- **EUS**: Extended Update Support, allowing skipping one minor version (e.g., 4.18 -> 4.20).
 - **FULL**: Full test suite.
+- **PUM**: Post Upgrade Marker (a reduced test suite).
