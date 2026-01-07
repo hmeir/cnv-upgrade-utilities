@@ -1,12 +1,13 @@
-import argparse
 import re
 import json
 import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
+
+import click
 from packaging.version import Version
-from upgrade_utils.version_explorer_utils import get_latest_stable_released_z_stream_info, get_version_explorer_url, get_build_info_by_version, extract_stable_channel_info
+from cnv_upgrade_utilities.version_explorer_utils import get_latest_stable_released_z_stream_info, get_version_explorer_url, get_build_info_by_version, extract_stable_channel_info
 
 LOGGER = logging.getLogger(__name__)
 
@@ -15,33 +16,21 @@ VALID_CHANNELS = ("stable", "candidate")
 SKIP_Y_STREAM_UPGRADE_MINORS = {12, 14}
 
 
-def validate_version(version: str) -> str:
-    """Validate that version matches the 4.Y.z format."""
-    if not VERSION_PATTERN.match(version):
-        raise argparse.ArgumentTypeError(
-            f"Invalid version format: '{version}'. Expected format: 4.Y.z (e.g., 4.20.2)"
-        )
-    return version
+class VersionParamType(click.ParamType):
+    """Custom click parameter type for version validation."""
+    name = "version"
+
+    def convert(self, value, param, ctx):
+        if not VERSION_PATTERN.match(value):
+            self.fail(
+                f"Invalid version format: '{value}'. Expected format: 4.Y.z (e.g., 4.20.2)",
+                param,
+                ctx,
+            )
+        return value
 
 
-def parse_args() -> argparse.Namespace:
-    """Parse and validate command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Upgrade release checklist tool"
-    )
-    parser.add_argument(
-        "-v", "--target-version",
-        type=validate_version,
-        required=True,
-        help="Target version in format 4.Y.z (e.g., 4.20.2)"
-    )
-    parser.add_argument(
-        "-c", "--channel",
-        choices=VALID_CHANNELS,
-        default="stable",
-        help="Release channel: stable or candidate (default: stable)"
-    )
-    return parser.parse_args()
+VERSION_TYPE = VersionParamType()
 
 
 class UpgradeType(Enum):
@@ -174,13 +163,26 @@ def categorize_version(target_version: Version) -> dict:
     }
 
 
-def main():
-    get_version_explorer_url()
-    args = parse_args()
+@click.command(help="Upgrade release checklist tool")
+@click.option(
+    "-v", "--target-version",
+    required=True,
+    type=VERSION_TYPE,
+    help="Target version in format 4.Y.z (e.g., 4.20.2)"
+)
+@click.option(
+    "-c", "--channel",
+    type=click.Choice(VALID_CHANNELS),
+    default="stable",
+    help="Release channel: stable or candidate (default: stable)"
+)
+def main(target_version: str, channel: str):
+    get_version_explorer_url()  # Validate env var after parsing args so --help works
     
-    version_info = categorize_version(Version(args.target_version))
+    version_info = categorize_version(Version(target_version))
     
-    print(json.dumps(version_info, indent=2, default=str))
+    click.echo(json.dumps(version_info, indent=2, default=str))
 
 if __name__ == "__main__":
     main()
+

@@ -1,0 +1,26 @@
+{
+  "target_version": "4.17.39",
+  "upgrade_lanes": {
+    "Y stream": {
+      "source_version": "v4.16.28",
+      "bundle_version": "v4.16.28.rhel9-4",
+      "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1081049",
+      "channel": "stable",
+      "post_upgrade_suite": "UTS-Marker"
+    },
+    "Z stream": {
+      "source_version": "v4.17.33",
+      "bundle_version": "v4.17.33.rhel9-24",
+      "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1066744",
+      "channel": "stable",
+      "post_upgrade_suite": "NONE"
+    },
+    "latest z": {
+      "source_version": "4.17.0",
+      "bundle_version": "v4.17.0.rhel9-803",
+      "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:840694",
+      "channel": "stable",
+      "post_upgrade_suite": "NONE"
+    }
+  }
+}

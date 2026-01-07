@@ -11,9 +11,19 @@ This repository contains a collection of utilities designed to assist with CNV (
 
 ## Installation
 
-This project uses `uv` for dependency management, but can also be installed via standard pip.
+This project uses `uv` for dependency management.
 
-### Using uv (Recommended)
+### Install as a CLI tool (Recommended)
+
+```bash
+git clone https://github.com/hmeir/cnv-upgrade-utilities.git
+cd cnv-upgrade-utilities
+uv tool install .
+```
+
+This makes the `release_checklist_upgrade_plan` command available globally.
+
+### Development installation
 
 ```bash
 git clone https://github.com/hmeir/cnv-upgrade-utilities.git
@@ -32,7 +42,7 @@ export VERSION_EXPLORER_URL="http://<your-version-explorer-host>"
 # Tools & Features
 
 ##  Upgrade Release Checklist Generator
-**Script:** `release_checklist_upgrade_lanes.py`
+**Command:** `release_checklist_upgrade_plan`
 
 * The target channel must be "stable"!  
 
@@ -77,11 +87,11 @@ The checklist tool categorizes the target version (`4.Y.z`) into three main buck
 
 ## Using the Release Checklist Tool
 
-Run the script by providing the target version using the `-v` (or `--target-version`) flag.
+Run the command by providing the target version using the `-v` (or `--target-version`) flag.
 
 **Basic Example:**
 ```bash
-uv run python release_checklist_upgrade_lanes.py -v 4.20.2
+release_checklist_upgrade_plan -v 4.20.2
 ```
 
 ### Specifying a Channel
@@ -89,7 +99,7 @@ NOTE: still not fully supported
 You can optionally specify the release channel (default is `stable`):
 
 ```bash
-uv run python release_checklist_upgrade_lanes.py -v 4.20.2 -c stable
+release_checklist_upgrade_plan -v 4.20.2 -c stable
 ```
 
 ### Sample Output
