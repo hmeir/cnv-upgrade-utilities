@@ -1,13 +1,14 @@
-import re
 import json
 import logging
+import re
 from enum import Enum
 
 import click
+
 from cnv_upgrade_utilities.version_explorer_utils import (
-    get_latest_stable_released_z_stream_info,
     get_latest_candidate_released_z_stream_info,
     get_latest_candidate_with_stable_fallback_info,
+    get_latest_stable_released_z_stream_info,
     get_version_explorer_url,
 )
 
@@ -18,6 +19,7 @@ MINOR_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)$")
 
 class UpgradeType(Enum):
     """Upgrade type enumeration."""
+
     Z_STREAM = "z_stream"
     Y_STREAM = "y_stream"
     UNSUPPORTED = "unsupported"
@@ -25,6 +27,7 @@ class UpgradeType(Enum):
 
 class MinorVersionParamType(click.ParamType):
     """Custom click parameter type for minor version validation (4.Y format)."""
+
     name = "minor_version"
 
     def convert(self, value, param, ctx):
@@ -49,9 +52,9 @@ def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeT
     """Determine the upgrade type based on source and target versions."""
     source_minor = parse_minor_version(source_version)
     target_minor = parse_minor_version(target_version)
-    
+
     version_diff = target_minor - source_minor
-    
+
     if version_diff == 0:
         return UpgradeType.Z_STREAM
     elif version_diff == 1:
@@ -80,7 +83,7 @@ def build_result(upgrade_type: UpgradeType, source_info: dict, target_info: dict
 def get_z_stream_upgrade_info(source_minor: str, target_minor: str) -> tuple[dict, dict]:
     """
     Get upgrade info for Z-stream upgrade (same minor version).
-    
+
     Logic:
     1. source: latest stable released to prod
     2. target: latest candidate released to prod
@@ -99,7 +102,7 @@ def get_z_stream_upgrade_info(source_minor: str, target_minor: str) -> tuple[dic
 def get_y_stream_upgrade_info(source_minor: str, target_minor: str) -> tuple[dict, dict]:
     """
     Get upgrade info for Y-stream upgrade (target = source + 1).
-    
+
     Logic:
     1. source: latest Y-1 stable released to prod
     2. target: latest candidate released to prod, pick its stable if available
@@ -138,16 +141,18 @@ def get_upgrade_jobs_info(source_version: str, target_version: str) -> dict:
 
 @click.command(help="Get upgrade jobs info for source and target versions")
 @click.option(
-    "-s", "--source-version",
+    "-s",
+    "--source-version",
     required=True,
     type=MINOR_VERSION_TYPE,
-    help="Source minor version in format 4.Y (e.g., 4.19)"
+    help="Source minor version in format 4.Y (e.g., 4.19)",
 )
 @click.option(
-    "-t", "--target-version",
+    "-t",
+    "--target-version",
     required=True,
     type=MINOR_VERSION_TYPE,
-    help="Target minor version in format 4.Y (e.g., 4.20)"
+    help="Target minor version in format 4.Y (e.g., 4.20)",
 )
 def main(source_version: str, target_version: str):
     get_version_explorer_url()  # Validate env var after parsing args so --help works
@@ -159,4 +164,3 @@ def main(source_version: str, target_version: str):
 
 if __name__ == "__main__":
     main()
-

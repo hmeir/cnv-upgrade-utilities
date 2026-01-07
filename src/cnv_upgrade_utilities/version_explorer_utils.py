@@ -1,11 +1,12 @@
-import os
-import requests
-from requests.exceptions import HTTPError, ConnectionError, Timeout, TooManyRedirects
-from typing import Any
 import logging
-from timeout_sampler import TimeoutExpiredError, TimeoutSampler, retry
+import os
 from functools import cache
+from typing import Any
+
+import requests
 from packaging.version import Version
+from requests.exceptions import ConnectionError, HTTPError, Timeout, TooManyRedirects
+from timeout_sampler import TimeoutSampler
 
 LOGGER = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ TIMEOUT_30SEC = 30
 @cache
 def get_version_explorer_url():
     """Get the version explorer URL, cached for reuse."""
-    version_explorer_url = os.environ.get('VERSION_EXPLORER_URL')
+    version_explorer_url = os.environ.get("VERSION_EXPLORER_URL")
     if not version_explorer_url:
         raise ValueError("VERSION_EXPLORER_URL environment variable is not set")
     return version_explorer_url
@@ -79,9 +80,7 @@ def extract_channel_info(build_data: dict, version: str, bundle_version_key: str
     Returns:
         Dictionary with version, bundle_version, iib, and channel
     """
-    channel_build = next(
-        (build for build in build_data.get("channels", []) if build.get("channel") == channel), {}
-    )
+    channel_build = next((build for build in build_data.get("channels", []) if build.get("channel") == channel), {})
     assert channel_build, f"No {channel} build found"
     return {
         "version": version,
@@ -140,7 +139,9 @@ def get_latest_stable_released_z_stream_info(minor_version: str) -> dict[str, st
                 latest_z_stream = build_version
                 source_build = build
     assert latest_z_stream and source_build, "No stable latest z stream found"
-    return extract_stable_channel_info(build_data=source_build, version=source_build["csv_version"], bundle_version_key="version")
+    return extract_stable_channel_info(
+        build_data=source_build, version=source_build["csv_version"], bundle_version_key="version"
+    )
 
 
 def get_latest_candidate_released_z_stream_info(minor_version: str) -> dict[str, str] | None:
@@ -171,19 +172,21 @@ def get_latest_candidate_released_z_stream_info(minor_version: str) -> dict[str,
                 latest_z_stream = build_version
                 target_build = build
     assert latest_z_stream and target_build, "No candidate latest z stream found"
-    return extract_candidate_channel_info(build_data=target_build, version=target_build["csv_version"], bundle_version_key="version")
+    return extract_candidate_channel_info(
+        build_data=target_build, version=target_build["csv_version"], bundle_version_key="version"
+    )
 
 
 def get_latest_build_with_errata_info(minor_version: str) -> dict[str, str] | None:
     """
     Get the latest build with errata for a minor version, regardless of channel.
-    
+
     Returns the build with the highest version number that has errata,
     preferring stable channel if available for that build, otherwise candidate.
-    
+
     Args:
         minor_version: Minor version string (e.g., "v4.20")
-        
+
     Returns:
         Dictionary with version, bundle_version, iib, and channel info
     """
@@ -191,7 +194,7 @@ def get_latest_build_with_errata_info(minor_version: str) -> dict[str, str] | No
         api_end_point="GetBuildsWithErrata",
         query_string=f"minor_version={minor_version}",
     )["builds"]
-    
+
     latest_z_stream = None
     target_build = None
     for build in builds:
@@ -201,14 +204,18 @@ def get_latest_build_with_errata_info(minor_version: str) -> dict[str, str] | No
             if latest_z_stream is None or build_version > latest_z_stream:
                 latest_z_stream = build_version
                 target_build = build
-    
+
     assert latest_z_stream and target_build, "No build with errata found"
-    
+
     # Prefer stable channel if available, otherwise use candidate
     if stable_channel_released_to_prod(channels=target_build["channels"]):
-        return extract_stable_channel_info(build_data=target_build, version=target_build["csv_version"], bundle_version_key="version")
-    
-    return extract_candidate_channel_info(build_data=target_build, version=target_build["csv_version"], bundle_version_key="version")
+        return extract_stable_channel_info(
+            build_data=target_build, version=target_build["csv_version"], bundle_version_key="version"
+        )
+
+    return extract_candidate_channel_info(
+        build_data=target_build, version=target_build["csv_version"], bundle_version_key="version"
+    )
 
 
 def get_latest_candidate_with_stable_fallback_info(minor_version: str) -> dict[str, str] | None:
@@ -245,9 +252,13 @@ def get_latest_candidate_with_stable_fallback_info(minor_version: str) -> dict[s
 
     # Check if this build also has stable channel released to prod
     if stable_channel_released_to_prod(channels=target_build["channels"]):
-        return extract_stable_channel_info(build_data=target_build, version=target_build["csv_version"], bundle_version_key="version")
+        return extract_stable_channel_info(
+            build_data=target_build, version=target_build["csv_version"], bundle_version_key="version"
+        )
 
-    return extract_candidate_channel_info(build_data=target_build, version=target_build["csv_version"], bundle_version_key="version")
+    return extract_candidate_channel_info(
+        build_data=target_build, version=target_build["csv_version"], bundle_version_key="version"
+    )
 
 
 def get_cnv_info_by_iib(iib: str) -> dict[str, str]:
@@ -260,6 +271,7 @@ def get_cnv_info_by_iib(iib: str) -> dict[str, str]:
         channel=build_info["channel"],
     )
 
+
 def get_build_info_by_version(version: str, errata_status: str = "true") -> dict[str, Any]:
     query_string = f"version={version}"
     if errata_status:
@@ -269,9 +281,9 @@ def get_build_info_by_version(version: str, errata_status: str = "true") -> dict
         query_string=query_string,
     )
 
+
 def get_build_info_dict(version: str, channel: str = "stable") -> dict[str, str]:
     return {
         "version": version,
         "channel": channel,
     }
-

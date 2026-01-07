@@ -44,7 +44,7 @@ export VERSION_EXPLORER_URL="http://<your-version-explorer-host>"
 ##  Upgrade Release Checklist Generator
 **Command:** `release_checklist_upgrade_plan`
 
-* The target channel must be "stable"!  
+* The target channel must be "stable"!
 
 This tool automates the generation of upgrade paths (lanes) for CNV release checklists. It determines the appropriate source versions and post-upgrade test suites based on the target release version and defined upgrade rules.
 
@@ -95,7 +95,7 @@ release_checklist_upgrade_plan -v 4.20.2
 ```
 
 ### Specifying a Channel
-NOTE: still not fully supported  
+NOTE: still not fully supported
 You can optionally specify the release channel (default is `stable`):
 
 ```bash
