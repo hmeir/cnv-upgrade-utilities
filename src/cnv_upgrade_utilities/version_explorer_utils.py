@@ -282,6 +282,24 @@ def get_build_info_by_version(version: str, errata_status: str = "true") -> dict
     )
 
 
+def get_z0_release_info(minor_version: str) -> dict[str, str]:
+    """
+    Get the 4.Y.0 release info for a minor version (used for latest-z upgrades).
+
+    Args:
+        minor_version: Minor version string (e.g., "4.20" or "v4.20")
+
+    Returns:
+        Dictionary with version, bundle_version, iib, and channel info
+    """
+    # Strip 'v' prefix if present
+    clean_version = minor_version.lstrip("v")
+    version = f"{clean_version}.0"
+
+    build_info = get_build_info_by_version(version=version, errata_status="true")["successful_builds"][0]
+    return extract_stable_channel_info(build_data=build_info, version=version, bundle_version_key="cnv_build")
+
+
 def get_build_info_dict(version: str, channel: str = "stable") -> dict[str, str]:
     return {
         "version": version,
