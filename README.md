@@ -175,10 +175,10 @@ Each upgrade type uses a specific strategy to fetch source and target build info
 
 | Upgrade Type | Source Fetch | Target Fetch |
 |--------------|--------------|--------------|
-| **Z-stream** | Latest stable released to prod | Latest candidate (fallback to stable if same as source) |
-| **Y-stream** | Latest Y-1 stable released to prod | Latest candidate (fallback to stable) |
-| **Latest-Z** | 4.Y.0 release info | Latest candidate (fallback to stable) |
-| **EUS** | Latest Y stable released to prod | Latest candidate (fallback to stable) |
+| **Z-stream** | Latest stable released to prod | Latest candidate (or latest stable in QE) |
+| **Y-stream** | Latest Y-1 stable released to prod | Latest candidate (or latest stable in QE) |
+| **Latest-Z** | 4.Y.0 release info | Latest candidate (or latest stable in QE) |
+| **EUS** | Latest Y stable released to prod | Latest candidate (or latest stable in QE) |
 
 ### Usage Examples
 
@@ -198,20 +198,26 @@ upgrade_jobs_info -s 4.18 -t 4.20
 
 ### Sample Output
 
+For a Z-stream upgrade command:
+```bash
+upgrade_jobs_info -s 4.20 -t 4.20
+```
+
+Output:
 ```json
 {
-  "upgrade_type": "y_stream",
+  "upgrade_type": "z_stream",
   "source": {
-    "source_version": "v4.19.15",
-    "bundle_version": "v4.19.15.rhel9-18",
-    "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1079024",
+    "source_version": "v4.20.3",
+    "bundle_version": "v4.20.3.rhel9-31",
+    "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1084676",
     "channel": "stable"
   },
   "target": {
-    "source_version": "v4.20.2",
-    "bundle_version": "v4.20.2.rhel9-8",
-    "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1075123",
-    "channel": "stable"
+    "source_version": "v4.20.5",
+    "bundle_version": "v4.20.5.rhel9-3",
+    "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1091512",
+    "channel": "candidate"
   }
 }
 ```
