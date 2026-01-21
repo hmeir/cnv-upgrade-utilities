@@ -210,13 +210,13 @@ Output:
 {
   "upgrade_type": "z_stream",
   "source": {
-    "source_version": "v4.20.3",
+    "version": "v4.20.3",
     "bundle_version": "v4.20.3.rhel9-31",
     "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1084676",
     "channel": "stable"
   },
   "target": {
-    "source_version": "v4.20.5",
+    "version": "v4.20.5",
     "bundle_version": "v4.20.5.rhel9-3",
     "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1091512",
     "channel": "candidate"

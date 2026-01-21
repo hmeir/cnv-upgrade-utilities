@@ -18,13 +18,13 @@ def build_result(upgrade_type: UpgradeType, source_info: dict, target_info: dict
     return {
         "upgrade_type": upgrade_type.value,
         "source": {
-            "source_version": source_info["version"],
+            "version": source_info["version"],
             "bundle_version": source_info["bundle_version"],
             "iib": source_info["iib"],
             "channel": source_info["channel"],
         },
         "target": {
-            "source_version": target_info["version"],
+            "version": target_info["version"],
             "bundle_version": target_info["bundle_version"],
             "iib": target_info["iib"],
             "channel": target_info["channel"],
