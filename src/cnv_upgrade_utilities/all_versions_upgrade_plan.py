@@ -5,11 +5,15 @@ from pathlib import Path
 import click
 from packaging.version import Version
 
-from cnv_upgrade_utilities.release_checklist_upgrade_plan import categorize_version
-from cnv_upgrade_utilities.utils import SUPPORTED_MINORS
+from cnv_upgrade_utilities.release_checklist_upgrade_plan import get_upgrade_paths_info
 from utils.version_explorer import CnvVersionExplorer
 
 LOGGER = logging.getLogger(__name__)
+
+# ============================================================================
+# Version Configuration
+# ============================================================================
+SUPPORTED_MINORS = (12, 14, 16, 17, 18, 19, 20, 21)
 
 
 def get_latest_target_version_for_minor(explorer: CnvVersionExplorer, minor: int) -> Version:
@@ -44,7 +48,7 @@ def generate_upgrade_plan_for_minor(explorer: CnvVersionExplorer, minor: int) ->
     target_version = get_latest_target_version_for_minor(explorer, minor)
     LOGGER.info(f"Generating upgrade plan for 4.{minor} -> target: {target_version}")
 
-    return categorize_version(explorer, target_version)
+    return get_upgrade_paths_info(explorer, target_version)
 
 
 def generate_all_upgrade_plans(explorer: CnvVersionExplorer, output_dir: Path) -> dict[str, dict]:

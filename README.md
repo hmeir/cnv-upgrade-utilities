@@ -21,7 +21,10 @@ cd cnv-upgrade-utilities
 uv tool install .
 ```
 
-This makes the `release_checklist_upgrade_plan` command available globally.
+This makes the following commands available globally:
+- `release_checklist_upgrade_plan`
+- `upgrade_jobs_info`
+- `all_versions_upgrade_plan`
 
 ### Development installation
 
@@ -95,12 +98,16 @@ release_checklist_upgrade_plan -v 4.20.2
 ```
 
 ### Specifying a Channel
-NOTE: still not fully supported
+
 You can optionally specify the release channel (default is `stable`):
 
 ```bash
 release_checklist_upgrade_plan -v 4.20.2 -c stable
+# or
+release_checklist_upgrade_plan -v 4.20.2 -c candidate
 ```
+
+**Note:** Only `stable` channel is fully supported at this time.
 
 ### Sample Output
 
@@ -132,7 +139,140 @@ release_checklist_upgrade_plan -v 4.20.2 -c stable
   }
 }
 ```
-# Next Steps
 
-* Adding logic to pull the required information for scheduled upgrade jobs execution.
-* Additional utils inc.
+## Upgrade Jobs Info Tool
+
+**Command:** `upgrade_jobs_info`
+
+This tool provides source and target build information for scheduled upgrade job execution. Unlike the release checklist tool which determines upgrade lanes from a target version, this tool takes both source and target versions and returns the specific build details needed for job execution.
+
+### Parameters
+
+| Parameter | Format | Required | Description |
+|-----------|--------|----------|-------------|
+| `-s, --source-version` | `4.Y` or `4.Y.0` | Yes | Source version. Use `4.Y` for z/y-stream upgrades, `4.Y.0` for latest-z |
+| `-t, --target-version` | `4.Y` | Yes | Target minor version |
+
+### Parameter Constraints
+
+- For **latest-z** upgrades, source must end with `.0` and have the same Y as target
+- For **EUS** upgrades, both source and target minor versions must be even numbers
+
+### Upgrade Type Detection Strategy
+
+The tool automatically determines the upgrade type based on the source and target versions:
+
+| Source | Target | Upgrade Type | Description |
+|--------|--------|--------------|-------------|
+| `4.Y` | `4.Y` | Z-stream | Same minor version |
+| `4.Y` | `4.(Y+1)` | Y-stream | One minor version difference |
+| `4.Y.0` | `4.Y` | Latest-Z | Source is .0 release, same minor |
+| `4.Y` | `4.(Y+2)` | EUS | Two minor versions, both even |
+
+### Fetch Strategy by Upgrade Type
+
+Each upgrade type uses a specific strategy to fetch source and target build information:
+
+| Upgrade Type | Source Fetch | Target Fetch |
+|--------------|--------------|--------------|
+| **Z-stream** | Latest stable released to prod | Latest candidate (fallback to stable if same as source) |
+| **Y-stream** | Latest Y-1 stable released to prod | Latest candidate (fallback to stable) |
+| **Latest-Z** | 4.Y.0 release info | Latest candidate (fallback to stable) |
+| **EUS** | Latest Y stable released to prod | Latest candidate (fallback to stable) |
+
+### Usage Examples
+
+```bash
+# Z-stream upgrade (4.20 -> 4.20)
+upgrade_jobs_info -s 4.20 -t 4.20
+
+# Y-stream upgrade (4.19 -> 4.20)
+upgrade_jobs_info -s 4.19 -t 4.20
+
+# Latest-Z upgrade (4.20.0 -> 4.20)
+upgrade_jobs_info -s 4.20.0 -t 4.20
+
+# EUS upgrade (4.18 -> 4.20)
+upgrade_jobs_info -s 4.18 -t 4.20
+```
+
+### Sample Output
+
+```json
+{
+  "upgrade_type": "y_stream",
+  "source": {
+    "source_version": "v4.19.15",
+    "bundle_version": "v4.19.15.rhel9-18",
+    "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1079024",
+    "channel": "stable"
+  },
+  "target": {
+    "source_version": "v4.20.2",
+    "bundle_version": "v4.20.2.rhel9-8",
+    "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1075123",
+    "channel": "stable"
+  }
+}
+```
+
+## All Versions Upgrade Plan Tool
+
+**Command:** `all_versions_upgrade_plan`
+
+This tool batch generates upgrade plans for all supported CNV minor versions. It outputs individual JSON files per version and an optional combined summary file.
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `-o, --output-dir` | `./upgrade_plans` | Output directory for JSON files |
+| `--summary/--no-summary` | `--summary` | Generate combined summary file |
+
+### Supported Versions
+
+The tool generates upgrade plans for the following CNV versions:
+- 4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20, 4.21
+
+### Strategy
+
+1. For each supported minor version, query the latest build with errata
+2. Use that version as the target and generate upgrade paths (same logic as `release_checklist_upgrade_plan`)
+3. Write individual JSON files: `upgrade_plan_4_X.json`
+4. Optionally write combined summary: `all_versions_summary.json`
+
+### Usage Examples
+
+```bash
+# Generate plans to default directory
+all_versions_upgrade_plan
+
+# Specify custom output directory
+all_versions_upgrade_plan -o /tmp/my_plans
+
+# Skip summary file
+all_versions_upgrade_plan --no-summary
+```
+
+### Sample Output
+
+The tool creates the following files in the output directory:
+
+```
+upgrade_plans/
+├── upgrade_plan_4_12.json
+├── upgrade_plan_4_14.json
+├── upgrade_plan_4_16.json
+├── upgrade_plan_4_17.json
+├── upgrade_plan_4_18.json
+├── upgrade_plan_4_19.json
+├── upgrade_plan_4_20.json
+├── upgrade_plan_4_21.json
+└── all_versions_summary.json  (optional)
+```
+
+Each individual file contains the same structure as the output from `release_checklist_upgrade_plan` for that specific version.
+
+# Contributing
+
+Contributions are welcome! Please ensure code follows the project's style guidelines (enforced via `ruff` and `flake8`).

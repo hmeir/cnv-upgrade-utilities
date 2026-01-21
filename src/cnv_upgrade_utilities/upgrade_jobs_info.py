@@ -4,12 +4,15 @@ import logging
 import click
 
 from cnv_upgrade_utilities.utils import MINOR_VERSION_TYPE, SOURCE_VERSION_TYPE, UpgradeType, determine_upgrade_type
-from utils.constants import CHANNEL_CANDIDATE, CHANNEL_STABLE
+from utils.constants import CHANNEL_STABLE
 from utils.version_explorer import CnvVersionExplorer
 
 LOGGER = logging.getLogger(__name__)
 
 
+# ============================================================================
+# Fetch Strategy Configuration
+# ============================================================================
 def build_result(upgrade_type: UpgradeType, source_info: dict, target_info: dict) -> dict:
     """Build the result dictionary with source and target info."""
     return {
@@ -39,11 +42,7 @@ def get_z_stream_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, t
        - If candidate bundle_version matches source's stable, use stable instead
     """
     source_info = explorer.get_latest_released_z_stream_info(minor_version=source_minor, channel=CHANNEL_STABLE)
-    target_info = explorer.get_latest_released_z_stream_info(minor_version=target_minor, channel=CHANNEL_CANDIDATE)
-
-    # If target's candidate bundle_version matches source's stable, use stable for target
-    if target_info["bundle_version"] == source_info["bundle_version"]:
-        target_info = explorer.get_latest_released_z_stream_info(minor_version=target_minor, channel=CHANNEL_STABLE)
+    target_info = explorer.get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
 
     return source_info, target_info
 
