@@ -53,10 +53,12 @@ def get_y_stream_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, t
 
     Logic:
     1. source: latest Y-1 stable released to prod
-    2. target: latest candidate released to prod, pick its stable if available
+    2. target: latest build with stable channel and errata (includes QE builds)
+
+    Note: Y-stream upgrades require the target to have a stable channel.
     """
     source_info = explorer.get_latest_released_z_stream_info(minor_version=source_minor, channel=CHANNEL_STABLE)
-    target_info = explorer.get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
+    target_info = explorer.get_latest_stable_build_with_errata_info(minor_version=target_minor)
 
     return source_info, target_info
 
@@ -81,10 +83,12 @@ def get_eus_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, target
 
     Logic:
     1. source: latest Y stable released to prod
-    2. target: latest candidate released to prod, pick its stable if available
+    2. target: latest build with stable channel and errata (includes QE builds)
+
+    Note: EUS upgrades require the target to have a stable channel.
     """
     source_info = explorer.get_latest_released_z_stream_info(minor_version=source_minor, channel=CHANNEL_STABLE)
-    target_info = explorer.get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
+    target_info = explorer.get_latest_stable_build_with_errata_info(minor_version=target_minor)
 
     return source_info, target_info
 

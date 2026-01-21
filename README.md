@@ -176,9 +176,11 @@ Each upgrade type uses a specific strategy to fetch source and target build info
 | Upgrade Type | Source Fetch | Target Fetch |
 |--------------|--------------|--------------|
 | **Z-stream** | Latest stable released to prod | Latest candidate (or latest stable in QE) |
-| **Y-stream** | Latest Y-1 stable released to prod | Latest candidate (or latest stable in QE) |
+| **Y-stream** | Latest Y-1 stable released to prod | Latest build with **stable channel** and errata (includes QE builds) |
 | **Latest-Z** | 4.Y.0 release info | Latest candidate (or latest stable in QE) |
-| **EUS** | Latest Y stable released to prod | Latest candidate (or latest stable in QE) |
+| **EUS** | Latest Y stable released to prod | Latest build with **stable channel** and errata (includes QE builds) |
+
+**Note:** Y-stream and EUS upgrades require the target to have a stable channel. Z-stream and Latest-Z upgrades can use either candidate or stable channels.
 
 ### Usage Examples
 

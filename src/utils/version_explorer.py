@@ -284,6 +284,35 @@ class CnvVersionExplorer:
         assert build, "No build with errata found"
         return extract_build_info_with_stable_preference(build, require_released=False)
 
+    def get_latest_stable_build_with_errata_info(self, minor_version: str) -> dict[str, str]:
+        """
+        Get the latest build that has a stable channel with errata.
+
+        Returns the build with the highest version number that has errata AND
+        has a stable channel (whether released to prod or not).
+        This is useful for upgrade jobs where you specifically need a stable channel.
+
+        Args:
+            minor_version: Minor version string (e.g., "v4.20")
+
+        Returns:
+            Dictionary with version, bundle_version, iib, and channel info
+
+        Raises:
+            AssertionError: If no build with stable channel and errata is found
+        """
+        builds = self.get_builds_with_errata(minor_version)
+        build = find_latest_build(
+            builds, lambda b: bool(b.get("errata_status")) and channel_exists(b["channels"], CHANNEL_STABLE)
+        )
+        assert build, f"No build with stable channel and errata found for {minor_version}"
+        return extract_channel_info(
+            build_data=build,
+            version=build["csv_version"],
+            bundle_version_key=BUNDLE_VERSION_KEY_VERSION,
+            channel=CHANNEL_STABLE,
+        )
+
     def get_latest_candidate_with_stable_fallback_info(self, minor_version: str) -> dict[str, str]:
         """
         Get the latest candidate channel released z-stream info, with stable fallback.
