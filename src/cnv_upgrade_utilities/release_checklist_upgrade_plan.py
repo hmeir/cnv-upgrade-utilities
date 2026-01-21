@@ -1,55 +1,25 @@
 import json
 import logging
-import re
 from dataclasses import dataclass
-from enum import Enum
 
 import click
 from packaging.version import Version
 
-from cnv_upgrade_utilities.version_explorer_utils import (
-    extract_stable_channel_info,
-    get_build_info_by_version,
-    get_latest_stable_released_z_stream_info,
-    get_version_explorer_url,
+from cnv_upgrade_utilities.utils import FULL_VERSION_TYPE
+from utils.constants import (
+    BUNDLE_VERSION_KEY_CNV_BUILD,
+    CHANNEL_STABLE,
+    ERRATA_STATUS_TRUE,
+    POST_UPGRADE_SUITE_FULL,
+    POST_UPGRADE_SUITE_MARKER,
+    POST_UPGRADE_SUITE_NONE,
+    SKIP_Y_STREAM_UPGRADE_MINORS,
+    VALID_CHANNELS,
+    UpgradeType,
 )
+from utils.version_explorer import CnvVersionExplorer, extract_stable_channel_info
 
 LOGGER = logging.getLogger(__name__)
-
-VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
-VALID_CHANNELS = ("stable", "candidate")
-SKIP_Y_STREAM_UPGRADE_MINORS = {12, 14}
-
-
-class VersionParamType(click.ParamType):
-    """Custom click parameter type for version validation."""
-
-    name = "version"
-
-    def convert(self, value, param, ctx):
-        if not VERSION_PATTERN.match(value):
-            self.fail(
-                f"Invalid version format: '{value}'. Expected format: 4.Y.z (e.g., 4.20.2)",
-                param,
-                ctx,
-            )
-        return value
-
-
-VERSION_TYPE = VersionParamType()
-
-
-class UpgradeType(Enum):
-    """Upgrade type enumeration with associated minor version offset."""
-
-    Y_STREAM = ("Y stream", -1)
-    Z_STREAM = ("Z stream", 0)
-    EUS = ("EUS", -2)
-    LATEST_Z = ("latest z", None)
-
-    def __init__(self, display_name: str, minor_offset: int | None):
-        self.display_name = display_name
-        self.minor_offset = minor_offset
 
 
 @dataclass
@@ -69,14 +39,14 @@ VERSION_CATEGORIES = {
     0: VersionCategory(
         version_pattern="4.Y.0",
         upgrade_configs=[
-            UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite="UTS-FULL"),
+            UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite=POST_UPGRADE_SUITE_FULL),
         ],
     ),
     1: VersionCategory(
         version_pattern="4.Y.1",
         upgrade_configs=[
-            UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite="UTS-FULL"),
-            UpgradeConfig(UpgradeType.Z_STREAM, post_upgrade_suite="UTS-Marker"),
+            UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite=POST_UPGRADE_SUITE_FULL),
+            UpgradeConfig(UpgradeType.Z_STREAM, post_upgrade_suite=POST_UPGRADE_SUITE_MARKER),
         ],
     ),
 }
@@ -85,9 +55,9 @@ VERSION_CATEGORIES = {
 DEFAULT_CATEGORY = VersionCategory(
     version_pattern="4.Y.2+",
     upgrade_configs=[
-        UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite="UTS-Marker"),
-        UpgradeConfig(UpgradeType.Z_STREAM, post_upgrade_suite="NONE"),
-        UpgradeConfig(UpgradeType.LATEST_Z, post_upgrade_suite="NONE"),
+        UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite=POST_UPGRADE_SUITE_MARKER),
+        UpgradeConfig(UpgradeType.Z_STREAM, post_upgrade_suite=POST_UPGRADE_SUITE_NONE),
+        UpgradeConfig(UpgradeType.LATEST_Z, post_upgrade_suite=POST_UPGRADE_SUITE_NONE),
     ],
 )
 
@@ -103,11 +73,14 @@ def create_upgrade_entry(config: UpgradeConfig, build_info: dict) -> dict:
     }
 
 
-def fetch_source_version(target_version: Version, minor_offset: int | None = None) -> dict | None:
+def fetch_source_version(
+    explorer: CnvVersionExplorer, target_version: Version, minor_offset: int | None = None
+) -> dict | None:
     """
     Fetch latest stable source version info for given minor offset.
 
     Args:
+        explorer: CnvVersionExplorer instance
         target_version: Target version to upgrade to
         minor_offset: Offset to apply when fetching source version
 
@@ -117,17 +90,19 @@ def fetch_source_version(target_version: Version, minor_offset: int | None = Non
     if minor_offset is None:
         version = f"{target_version.major}.{target_version.minor}.0"
         # For "latest z" type, return minimal info
-        build_info = get_build_info_by_version(version=version, errata_status="true")["successful_builds"][0]
+        build_info = explorer.get_builds_by_version(version=version, errata_status=ERRATA_STATUS_TRUE)[
+            "successful_builds"
+        ][0]
         source_info = extract_stable_channel_info(
-            build_data=build_info, version=version, bundle_version_key="cnv_build"
+            build_data=build_info, version=version, bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD
         )
     else:
         minor = f"v{target_version.major}.{target_version.minor + minor_offset}"
-        source_info = get_latest_stable_released_z_stream_info(minor_version=minor)
+        source_info = explorer.get_latest_stable_released_z_stream_info(minor_version=minor)
     return source_info
 
 
-def categorize_version(target_version: Version) -> dict:
+def categorize_version(explorer: CnvVersionExplorer, target_version: Version) -> dict:
     """
     Categorize version and return upgrade type info.
 
@@ -135,6 +110,7 @@ def categorize_version(target_version: Version) -> dict:
     the z-stream value and whether the version is EUS-eligible.
 
     Args:
+        explorer: CnvVersionExplorer instance
         target_version: Version object to categorize
 
     Returns:
@@ -151,12 +127,12 @@ def categorize_version(target_version: Version) -> dict:
 
     # Add EUS upgrade for even minor versions at z=0
     if z == 0 and y % 2 == 0:
-        upgrade_configs.append(UpgradeConfig(UpgradeType.EUS, post_upgrade_suite="UTS-Marker"))
+        upgrade_configs.append(UpgradeConfig(UpgradeType.EUS, post_upgrade_suite=POST_UPGRADE_SUITE_MARKER))
 
     # Build upgrade entries with source versions
     upgrade_lanes = {
         config.upgrade_type.display_name: create_upgrade_entry(
-            config, fetch_source_version(target_version, config.upgrade_type.minor_offset)
+            config, fetch_source_version(explorer, target_version, config.upgrade_type.minor_offset)
         )
         for config in upgrade_configs
     }
@@ -168,21 +144,24 @@ def categorize_version(target_version: Version) -> dict:
 
 @click.command(help="Upgrade release checklist tool")
 @click.option(
-    "-v", "--target-version", required=True, type=VERSION_TYPE, help="Target version in format 4.Y.z (e.g., 4.20.2)"
+    "-v",
+    "--target-version",
+    required=True,
+    type=FULL_VERSION_TYPE,
+    help="Target version in format 4.Y.z (e.g., 4.20.2)",
 )
 @click.option(
     "-c",
     "--channel",
     type=click.Choice(VALID_CHANNELS),
-    default="stable",
+    default=CHANNEL_STABLE,
     help="Release channel: stable or candidate (default: stable)",
 )
 def main(target_version: str, channel: str):
-    get_version_explorer_url()  # Validate env var after parsing args so --help works
+    with CnvVersionExplorer() as explorer:
+        version_info = categorize_version(explorer, Version(target_version))
 
-    version_info = categorize_version(Version(target_version))
-
-    click.echo(json.dumps(version_info, indent=2, default=str))
+        click.echo(json.dumps(version_info, indent=2, default=str))
 
 
 if __name__ == "__main__":

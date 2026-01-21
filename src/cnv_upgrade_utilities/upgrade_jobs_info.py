@@ -1,81 +1,19 @@
 import json
 import logging
-import re
-from enum import Enum
 
 import click
 
-from cnv_upgrade_utilities.version_explorer_utils import (
-    get_latest_candidate_released_z_stream_info,
-    get_latest_candidate_with_stable_fallback_info,
-    get_latest_stable_released_z_stream_info,
-    get_version_explorer_url,
-    get_z0_release_info,
+from cnv_upgrade_utilities.utils import (
+    MINOR_VERSION_TYPE,
+    SOURCE_VERSION_TYPE,
+    UpgradeType,
+    is_eus_version,
+    is_latest_z_source,
+    parse_minor_version,
 )
+from utils.version_explorer import CnvVersionExplorer
 
 LOGGER = logging.getLogger(__name__)
-
-# Matches 4.Y (minor version) or 4.Y.0 (for latest-z)
-SOURCE_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)(\.0)?$")
-TARGET_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)$")
-
-
-class UpgradeType(Enum):
-    """Upgrade type enumeration."""
-
-    Z_STREAM = "z_stream"
-    Y_STREAM = "y_stream"
-    LATEST_Z = "latest_z"
-    EUS = "eus"
-
-
-class SourceVersionParamType(click.ParamType):
-    """Custom click parameter type for source version validation (4.Y or 4.Y.0 format)."""
-
-    name = "source_version"
-
-    def convert(self, value, param, ctx):
-        if not SOURCE_VERSION_PATTERN.match(value):
-            self.fail(
-                f"Invalid version format: '{value}'. Expected format: 4.Y (e.g., 4.19) or 4.Y.0 for latest-z",
-                param,
-                ctx,
-            )
-        return value
-
-
-class TargetVersionParamType(click.ParamType):
-    """Custom click parameter type for target version validation (4.Y format)."""
-
-    name = "target_version"
-
-    def convert(self, value, param, ctx):
-        if not TARGET_VERSION_PATTERN.match(value):
-            self.fail(
-                f"Invalid version format: '{value}'. Expected format: 4.Y (e.g., 4.20)",
-                param,
-                ctx,
-            )
-        return value
-
-
-SOURCE_VERSION_TYPE = SourceVersionParamType()
-TARGET_VERSION_TYPE = TargetVersionParamType()
-
-
-def is_latest_z_source(source_version: str) -> bool:
-    """Check if source version is in 4.Y.0 format (latest-z upgrade)."""
-    return source_version.endswith(".0")
-
-
-def parse_minor_version(version: str) -> int:
-    """Extract the minor version number from a 4.Y or 4.Y.0 string."""
-    return int(version.split(".")[1])
-
-
-def is_eus_version(minor: int) -> bool:
-    """Check if a minor version is EUS-eligible (even number)."""
-    return minor % 2 == 0
 
 
 def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeType:
@@ -139,7 +77,7 @@ def build_result(upgrade_type: UpgradeType, source_info: dict, target_info: dict
     }
 
 
-def get_z_stream_upgrade_info(source_minor: str, target_minor: str) -> tuple[dict, dict]:
+def get_z_stream_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, target_minor: str) -> tuple[dict, dict]:
     """
     Get upgrade info for Z-stream upgrade (same minor version).
 
@@ -148,17 +86,17 @@ def get_z_stream_upgrade_info(source_minor: str, target_minor: str) -> tuple[dic
     2. target: latest candidate released to prod
        - If candidate bundle_version matches source's stable, use stable instead
     """
-    source_info = get_latest_stable_released_z_stream_info(minor_version=source_minor)
-    target_info = get_latest_candidate_released_z_stream_info(minor_version=target_minor)
+    source_info = explorer.get_latest_stable_released_z_stream_info(minor_version=source_minor)
+    target_info = explorer.get_latest_candidate_released_z_stream_info(minor_version=target_minor)
 
     # If target's candidate bundle_version matches source's stable, use stable for target
     if target_info["bundle_version"] == source_info["bundle_version"]:
-        target_info = get_latest_stable_released_z_stream_info(minor_version=target_minor)
+        target_info = explorer.get_latest_stable_released_z_stream_info(minor_version=target_minor)
 
     return source_info, target_info
 
 
-def get_y_stream_upgrade_info(source_minor: str, target_minor: str) -> tuple[dict, dict]:
+def get_y_stream_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, target_minor: str) -> tuple[dict, dict]:
     """
     Get upgrade info for Y-stream upgrade (target = source + 1).
 
@@ -166,13 +104,13 @@ def get_y_stream_upgrade_info(source_minor: str, target_minor: str) -> tuple[dic
     1. source: latest Y-1 stable released to prod
     2. target: latest candidate released to prod, pick its stable if available
     """
-    source_info = get_latest_stable_released_z_stream_info(minor_version=source_minor)
-    target_info = get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
+    source_info = explorer.get_latest_stable_released_z_stream_info(minor_version=source_minor)
+    target_info = explorer.get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
 
     return source_info, target_info
 
 
-def get_latest_z_upgrade_info(source_minor: str, target_minor: str) -> tuple[dict, dict]:
+def get_latest_z_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, target_minor: str) -> tuple[dict, dict]:
     """
     Get upgrade info for latest-z upgrade (source is 4.Y.0).
 
@@ -180,13 +118,13 @@ def get_latest_z_upgrade_info(source_minor: str, target_minor: str) -> tuple[dic
     1. source: 4.Y.0 release info
     2. target: latest candidate released to prod, pick its stable if available
     """
-    source_info = get_z0_release_info(minor_version=source_minor)
-    target_info = get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
+    source_info = explorer.get_z0_release_info(minor_version=source_minor)
+    target_info = explorer.get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
 
     return source_info, target_info
 
 
-def get_eus_upgrade_info(source_minor: str, target_minor: str) -> tuple[dict, dict]:
+def get_eus_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, target_minor: str) -> tuple[dict, dict]:
     """
     Get upgrade info for EUS upgrade (target = source + 2, both even).
 
@@ -194,17 +132,27 @@ def get_eus_upgrade_info(source_minor: str, target_minor: str) -> tuple[dict, di
     1. source: latest Y stable released to prod
     2. target: latest candidate released to prod, pick its stable if available
     """
-    source_info = get_latest_stable_released_z_stream_info(minor_version=source_minor)
-    target_info = get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
+    source_info = explorer.get_latest_stable_released_z_stream_info(minor_version=source_minor)
+    target_info = explorer.get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
 
     return source_info, target_info
 
 
-def get_upgrade_jobs_info(source_version: str, target_version: str) -> dict:
+# Map upgrade types to their handler functions
+UPGRADE_HANDLERS = {
+    UpgradeType.Z_STREAM: get_z_stream_upgrade_info,
+    UpgradeType.Y_STREAM: get_y_stream_upgrade_info,
+    UpgradeType.LATEST_Z: get_latest_z_upgrade_info,
+    UpgradeType.EUS: get_eus_upgrade_info,
+}
+
+
+def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, target_version: str) -> dict:
     """
     Get upgrade jobs info for source and target versions.
 
     Args:
+        explorer: CnvVersionExplorer instance
         source_version: Source minor version (e.g., "4.19", "4.20", or "4.20.0" for latest-z)
         target_version: Target minor version (e.g., "4.20")
 
@@ -223,14 +171,8 @@ def get_upgrade_jobs_info(source_version: str, target_version: str) -> dict:
 
     target_minor = f"v{target_version}"
 
-    if upgrade_type == UpgradeType.Z_STREAM:
-        source_info, target_info = get_z_stream_upgrade_info(source_minor, target_minor)
-    elif upgrade_type == UpgradeType.Y_STREAM:
-        source_info, target_info = get_y_stream_upgrade_info(source_minor, target_minor)
-    elif upgrade_type == UpgradeType.LATEST_Z:
-        source_info, target_info = get_latest_z_upgrade_info(source_minor, target_minor)
-    elif upgrade_type == UpgradeType.EUS:
-        source_info, target_info = get_eus_upgrade_info(source_minor, target_minor)
+    handler = UPGRADE_HANDLERS[upgrade_type]
+    source_info, target_info = handler(explorer, source_minor, target_minor)
 
     return build_result(upgrade_type, source_info, target_info)
 
@@ -247,15 +189,14 @@ def get_upgrade_jobs_info(source_version: str, target_version: str) -> dict:
     "-t",
     "--target-version",
     required=True,
-    type=TARGET_VERSION_TYPE,
+    type=MINOR_VERSION_TYPE,
     help="Target minor version in format 4.Y (e.g., 4.20)",
 )
 def main(source_version: str, target_version: str):
-    get_version_explorer_url()  # Validate env var after parsing args so --help works
+    with CnvVersionExplorer() as explorer:
+        result = get_upgrade_jobs_info(explorer, source_version, target_version)
 
-    result = get_upgrade_jobs_info(source_version, target_version)
-
-    click.echo(json.dumps(result, indent=2))
+        click.echo(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
