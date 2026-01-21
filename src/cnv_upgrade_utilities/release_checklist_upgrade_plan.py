@@ -1,76 +1,41 @@
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import click
 from packaging.version import Version
 
-from cnv_upgrade_utilities.utils import FULL_VERSION_TYPE
+from cnv_upgrade_utilities.utils import FULL_VERSION_TYPE, get_applicable_upgrade_types
 from utils.constants import (
     BUNDLE_VERSION_KEY_CNV_BUILD,
     CHANNEL_STABLE,
     ERRATA_STATUS_TRUE,
-    POST_UPGRADE_SUITE_FULL,
-    POST_UPGRADE_SUITE_MARKER,
-    POST_UPGRADE_SUITE_NONE,
-    SKIP_Y_STREAM_UPGRADE_MINORS,
     VALID_CHANNELS,
-    UpgradeType,
+    get_post_upgrade_suite,
 )
-from utils.version_explorer import CnvVersionExplorer, extract_stable_channel_info
+from utils.version_explorer import CnvVersionExplorer, extract_channel_info
 
 LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class UpgradeConfig:
-    upgrade_type: UpgradeType
+class UpgradeEntry:
+    source_version: str | None
+    bundle_version: str | None
+    iib: str | None
+    channel: str | None
     post_upgrade_suite: str
 
 
-@dataclass
-class VersionCategory:
-    version_pattern: str
-    upgrade_configs: list[UpgradeConfig]
-
-
-# Data-driven configuration mapping z-stream values to upgrade configurations
-VERSION_CATEGORIES = {
-    0: VersionCategory(
-        version_pattern="4.Y.0",
-        upgrade_configs=[
-            UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite=POST_UPGRADE_SUITE_FULL),
-        ],
-    ),
-    1: VersionCategory(
-        version_pattern="4.Y.1",
-        upgrade_configs=[
-            UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite=POST_UPGRADE_SUITE_FULL),
-            UpgradeConfig(UpgradeType.Z_STREAM, post_upgrade_suite=POST_UPGRADE_SUITE_MARKER),
-        ],
-    ),
-}
-
-# Default category for z >= 2
-DEFAULT_CATEGORY = VersionCategory(
-    version_pattern="4.Y.2+",
-    upgrade_configs=[
-        UpgradeConfig(UpgradeType.Y_STREAM, post_upgrade_suite=POST_UPGRADE_SUITE_MARKER),
-        UpgradeConfig(UpgradeType.Z_STREAM, post_upgrade_suite=POST_UPGRADE_SUITE_NONE),
-        UpgradeConfig(UpgradeType.LATEST_Z, post_upgrade_suite=POST_UPGRADE_SUITE_NONE),
-    ],
-)
-
-
-def create_upgrade_entry(config: UpgradeConfig, build_info: dict) -> dict:
-    """Create upgrade type dictionary entry."""
-    return {
-        "source_version": build_info.get("version"),
-        "bundle_version": build_info.get("bundle_version"),
-        "iib": build_info.get("iib"),
-        "channel": build_info.get("channel"),
-        "post_upgrade_suite": config.post_upgrade_suite,
-    }
+def create_upgrade_entry(build_info: dict, post_upgrade_suite: str) -> UpgradeEntry:
+    """Create upgrade entry from build info and post_upgrade_suite."""
+    return UpgradeEntry(
+        source_version=build_info.get("version"),
+        bundle_version=build_info.get("bundle_version"),
+        iib=build_info.get("iib"),
+        channel=build_info.get("channel"),
+        post_upgrade_suite=post_upgrade_suite,
+    )
 
 
 def fetch_source_version(
@@ -93,12 +58,15 @@ def fetch_source_version(
         build_info = explorer.get_builds_by_version(version=version, errata_status=ERRATA_STATUS_TRUE)[
             "successful_builds"
         ][0]
-        source_info = extract_stable_channel_info(
-            build_data=build_info, version=version, bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD
+        source_info = extract_channel_info(
+            build_data=build_info,
+            version=version,
+            bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD,
+            channel=CHANNEL_STABLE,
         )
     else:
         minor = f"v{target_version.major}.{target_version.minor + minor_offset}"
-        source_info = explorer.get_latest_stable_released_z_stream_info(minor_version=minor)
+        source_info = explorer.get_latest_released_z_stream_info(minor_version=minor, channel=CHANNEL_STABLE)
     return source_info
 
 
@@ -116,25 +84,20 @@ def categorize_version(explorer: CnvVersionExplorer, target_version: Version) ->
     Returns:
         Dictionary containing target version, version type, and upgrade configurations
     """
-    z, y = target_version.micro, target_version.minor
+    y, z = target_version.minor, target_version.micro
 
-    # Get category configuration
-    upgrade_configs = list(VERSION_CATEGORIES.get(z, DEFAULT_CATEGORY).upgrade_configs)
-
-    # Filter out Y_STREAM for specific versions (e.g., 4.12, 4.14)
-    if y in SKIP_Y_STREAM_UPGRADE_MINORS:
-        upgrade_configs = [config for config in upgrade_configs if config.upgrade_type != UpgradeType.Y_STREAM]
-
-    # Add EUS upgrade for even minor versions at z=0
-    if z == 0 and y % 2 == 0:
-        upgrade_configs.append(UpgradeConfig(UpgradeType.EUS, post_upgrade_suite=POST_UPGRADE_SUITE_MARKER))
+    # Get all applicable upgrade types for this version
+    upgrade_types = get_applicable_upgrade_types(target_minor=y, target_z=z)
 
     # Build upgrade entries with source versions
     upgrade_lanes = {
-        config.upgrade_type.display_name: create_upgrade_entry(
-            config, fetch_source_version(explorer, target_version, config.upgrade_type.minor_offset)
+        upgrade_type.display_name: asdict(
+            create_upgrade_entry(
+                build_info=fetch_source_version(explorer, target_version, upgrade_type.minor_offset),
+                post_upgrade_suite=get_post_upgrade_suite(upgrade_type, z),
+            )
         )
-        for config in upgrade_configs
+        for upgrade_type in upgrade_types
     }
     return {
         "target_version": target_version,

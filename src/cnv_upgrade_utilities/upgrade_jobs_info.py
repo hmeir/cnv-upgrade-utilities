@@ -3,59 +3,11 @@ import logging
 
 import click
 
-from cnv_upgrade_utilities.utils import (
-    MINOR_VERSION_TYPE,
-    SOURCE_VERSION_TYPE,
-    UpgradeType,
-    is_eus_version,
-    is_latest_z_source,
-    parse_minor_version,
-)
+from cnv_upgrade_utilities.utils import MINOR_VERSION_TYPE, SOURCE_VERSION_TYPE, UpgradeType, determine_upgrade_type
+from utils.constants import CHANNEL_CANDIDATE, CHANNEL_STABLE
 from utils.version_explorer import CnvVersionExplorer
 
 LOGGER = logging.getLogger(__name__)
-
-
-def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeType:
-    """
-    Determine the upgrade type based on source and target versions.
-
-    Supported upgrade types:
-    - 4.Y.0 -> 4.Y: latest-z (source must target the same Y)
-    - 4.Y -> 4.Y: z-stream
-    - 4.Y -> 4.Y+1: y-stream
-    - 4.Y -> 4.Y+2: EUS (both Y versions must be even)
-
-    Raises:
-        ValueError: If the upgrade is unsupported
-    """
-    source_minor = parse_minor_version(source_version)
-    target_minor = parse_minor_version(target_version)
-
-    # Check for latest-z first (source is 4.Y.0)
-    if is_latest_z_source(source_version):
-        if source_minor != target_minor:
-            raise ValueError(
-                f"Unsupported upgrade: latest-z upgrade requires same minor version. "
-                f"source={source_version}, target={target_version}"
-            )
-        return UpgradeType.LATEST_Z
-
-    version_diff = target_minor - source_minor
-
-    if version_diff == 0:
-        return UpgradeType.Z_STREAM
-    elif version_diff == 1:
-        return UpgradeType.Y_STREAM
-    elif version_diff == 2:
-        if is_eus_version(source_minor) and is_eus_version(target_minor):
-            return UpgradeType.EUS
-        raise ValueError(
-            f"Unsupported upgrade: EUS upgrade requires both versions to be even. "
-            f"source={source_version} (minor={source_minor}), target={target_version} (minor={target_minor})"
-        )
-
-    raise ValueError(f"Unsupported upgrade: source={source_version}, target={target_version}")
 
 
 def build_result(upgrade_type: UpgradeType, source_info: dict, target_info: dict) -> dict:
@@ -86,12 +38,12 @@ def get_z_stream_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, t
     2. target: latest candidate released to prod
        - If candidate bundle_version matches source's stable, use stable instead
     """
-    source_info = explorer.get_latest_stable_released_z_stream_info(minor_version=source_minor)
-    target_info = explorer.get_latest_candidate_released_z_stream_info(minor_version=target_minor)
+    source_info = explorer.get_latest_released_z_stream_info(minor_version=source_minor, channel=CHANNEL_STABLE)
+    target_info = explorer.get_latest_released_z_stream_info(minor_version=target_minor, channel=CHANNEL_CANDIDATE)
 
     # If target's candidate bundle_version matches source's stable, use stable for target
     if target_info["bundle_version"] == source_info["bundle_version"]:
-        target_info = explorer.get_latest_stable_released_z_stream_info(minor_version=target_minor)
+        target_info = explorer.get_latest_released_z_stream_info(minor_version=target_minor, channel=CHANNEL_STABLE)
 
     return source_info, target_info
 
@@ -104,7 +56,7 @@ def get_y_stream_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, t
     1. source: latest Y-1 stable released to prod
     2. target: latest candidate released to prod, pick its stable if available
     """
-    source_info = explorer.get_latest_stable_released_z_stream_info(minor_version=source_minor)
+    source_info = explorer.get_latest_released_z_stream_info(minor_version=source_minor, channel=CHANNEL_STABLE)
     target_info = explorer.get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
 
     return source_info, target_info
@@ -132,7 +84,7 @@ def get_eus_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, target
     1. source: latest Y stable released to prod
     2. target: latest candidate released to prod, pick its stable if available
     """
-    source_info = explorer.get_latest_stable_released_z_stream_info(minor_version=source_minor)
+    source_info = explorer.get_latest_released_z_stream_info(minor_version=source_minor, channel=CHANNEL_STABLE)
     target_info = explorer.get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
 
     return source_info, target_info

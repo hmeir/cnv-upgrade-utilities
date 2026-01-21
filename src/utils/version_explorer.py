@@ -3,7 +3,6 @@
 import logging
 import os
 from collections.abc import Callable
-from enum import Enum
 from typing import Any
 
 import requests
@@ -16,10 +15,6 @@ from utils.constants import (
     BUNDLE_VERSION_KEY_VERSION,
     CHANNEL_CANDIDATE,
     CHANNEL_STABLE,
-    ENDPOINT_GET_BUILD_BY_IIB,
-    ENDPOINT_GET_BUILDS_WITH_ERRATA,
-    ENDPOINT_GET_SUCCESSFUL_BUILDS_BY_VERSION,
-    ENDPOINT_GET_UPGRADE_PATH,
     ENV_VERSION_EXPLORER_URL,
     ERRATA_STATUS_SHIPPED_LIVE,
     ERRATA_STATUS_TRUE,
@@ -55,15 +50,6 @@ class CnvVersionExplorer:
         request_timeout: Timeout for individual requests (seconds)
         retry_timeout: Total timeout for retry attempts (seconds)
     """
-
-    class APIEndpoints(Enum):
-        GET_BUILDS_WITH_ERRATA = "GetBuildsWithErrata"
-        GET_BUILD_BY_IIB = "GetBuildByIIB"
-        GET_SUCCESSFUL_BUILDS_BY_VERSION = "GetSuccessfulBuildsByVersion"
-        GET_UPGRADE_PATH = "GetUpgradePath"
-
-        def __str__(self) -> str:
-            return self.value
 
     def __init__(
         self,
@@ -170,7 +156,7 @@ class CnvVersionExplorer:
             if sample:
                 return sample
 
-    # --- Build Query Methods ---
+    # --- API Endpoints ---
 
     def get_builds_with_errata(self, minor_version: str) -> list[dict]:
         """
@@ -183,7 +169,7 @@ class CnvVersionExplorer:
             List of build dictionaries
         """
         return self.query_with_retry(
-            endpoint=ENDPOINT_GET_BUILDS_WITH_ERRATA,
+            endpoint="GetBuildsWithErrata",
             query_string=f"minor_version={minor_version}",
         )["builds"]
 
@@ -198,7 +184,7 @@ class CnvVersionExplorer:
             Build info dictionary with version and channel
         """
         build_info = self.query_with_retry(
-            endpoint=ENDPOINT_GET_BUILD_BY_IIB,
+            endpoint="GetBuildByIIB",
             query_string=f"iib_number={iib}",
         )
         return get_build_info_dict(
@@ -218,7 +204,7 @@ class CnvVersionExplorer:
             Dictionary with successful_builds list
         """
         return self.query_with_retry(
-            endpoint=ENDPOINT_GET_SUCCESSFUL_BUILDS_BY_VERSION,
+            endpoint="GetSuccessfulBuildsByVersion",
             query_string=f"version={version}&errata_status={errata_status}",
         )
 
@@ -235,54 +221,48 @@ class CnvVersionExplorer:
         """
         LOGGER.info(f"Getting upgrade path for target version: {target_version} and channel: {channel}")
         return self.query_with_retry(
-            endpoint=ENDPOINT_GET_UPGRADE_PATH,
+            endpoint="GetUpgradePath",
             query_string=f"targetVersion={target_version}&channel={channel}",
         )
 
-    # --- High-Level Query Methods ---
+    # --- High-Level Methods ---
 
-    def get_latest_stable_released_z_stream_info(self, minor_version: str) -> dict[str, str]:
+    def get_latest_released_z_stream_info(self, minor_version: str, channel: str) -> dict[str, str]:
         """
-        Get the latest stable channel released z-stream info for a minor version.
+        Get the latest released z-stream info for a minor version and channel.
 
         Args:
             minor_version: Minor version string (e.g., "v4.20")
+            channel: Release channel ("stable" or "candidate")
 
         Returns:
             Dictionary with version, bundle_version, iib, and channel info
+
+        Note:
+            For stable channel: requires SHIPPED_LIVE errata status and stable channel released to prod.
+            For candidate channel: only requires candidate channel released to prod.
         """
         builds = self.get_builds_with_errata(minor_version)
-        build = find_latest_build(
-            builds,
-            lambda b: b["errata_status"] == ERRATA_STATUS_SHIPPED_LIVE
-            and stable_channel_released_to_prod(b["channels"]),
-        )
-        assert build, "No stable latest z stream found"
+
+        if channel == CHANNEL_STABLE:
+
+            def predicate(b):
+                return b["errata_status"] == ERRATA_STATUS_SHIPPED_LIVE and channel_released_to_prod(
+                    b["channels"], CHANNEL_STABLE
+                )
+
+        else:
+
+            def predicate(b):
+                return channel_released_to_prod(b["channels"], channel)
+
+        build = find_latest_build(builds, predicate)
+        assert build, f"No {channel} latest z stream found"
         return extract_channel_info(
             build_data=build,
             version=build["csv_version"],
             bundle_version_key=BUNDLE_VERSION_KEY_VERSION,
-            channel=CHANNEL_STABLE,
-        )
-
-    def get_latest_candidate_released_z_stream_info(self, minor_version: str) -> dict[str, str]:
-        """
-        Get the latest candidate channel released z-stream info for a minor version.
-
-        Args:
-            minor_version: Minor version string (e.g., "v4.20")
-
-        Returns:
-            Dictionary with version, bundle_version, iib, and channel info
-        """
-        builds = self.get_builds_with_errata(minor_version)
-        build = find_latest_build(builds, lambda b: candidate_channel_released_to_prod(b["channels"]))
-        assert build, "No candidate latest z stream found"
-        return extract_channel_info(
-            build_data=build,
-            version=build["csv_version"],
-            bundle_version_key=BUNDLE_VERSION_KEY_VERSION,
-            channel=CHANNEL_CANDIDATE,
+            channel=channel,
         )
 
     def get_latest_build_with_errata_info(self, minor_version: str) -> dict[str, str]:
@@ -317,7 +297,7 @@ class CnvVersionExplorer:
             Dictionary with version, bundle_version, iib, and channel info
         """
         builds = self.get_builds_with_errata(minor_version)
-        build = find_latest_build(builds, lambda b: candidate_channel_released_to_prod(b["channels"]))
+        build = find_latest_build(builds, lambda b: channel_released_to_prod(b["channels"], CHANNEL_CANDIDATE))
         assert build, "No candidate latest z stream found"
         return extract_build_info_with_stable_preference(build)
 
@@ -352,16 +332,6 @@ def channel_released_to_prod(channels: list[dict[str, str | bool]], channel: str
     return any(item.get("channel") == channel and item.get("released_to_prod") for item in channels)
 
 
-def stable_channel_released_to_prod(channels: list[dict[str, str | bool]]) -> bool:
-    """Check if stable channel is released to prod."""
-    return channel_released_to_prod(channels, CHANNEL_STABLE)
-
-
-def candidate_channel_released_to_prod(channels: list[dict[str, str | bool]]) -> bool:
-    """Check if candidate channel is released to prod."""
-    return channel_released_to_prod(channels, CHANNEL_CANDIDATE)
-
-
 def extract_channel_info(build_data: dict, version: str, bundle_version_key: str, channel: str) -> dict[str, str]:
     """
     Extract channel information from build data.
@@ -383,16 +353,6 @@ def extract_channel_info(build_data: dict, version: str, bundle_version_key: str
         "iib": channel_build["iib"],
         "channel": channel_build["channel"],
     }
-
-
-def extract_stable_channel_info(build_data: dict, version: str, bundle_version_key: str) -> dict[str, str]:
-    """Extract stable channel information from build data."""
-    return extract_channel_info(build_data, version, bundle_version_key, CHANNEL_STABLE)
-
-
-def extract_candidate_channel_info(build_data: dict, version: str, bundle_version_key: str) -> dict[str, str]:
-    """Extract candidate channel information from build data."""
-    return extract_channel_info(build_data, version, bundle_version_key, CHANNEL_CANDIDATE)
 
 
 def find_latest_build(builds: list[dict], predicate: Callable[[dict], bool]) -> dict | None:
@@ -427,7 +387,7 @@ def extract_build_info_with_stable_preference(build: dict) -> dict[str, str]:
     Returns:
         Dictionary with version, bundle_version, iib, and channel info
     """
-    channel = CHANNEL_STABLE if stable_channel_released_to_prod(build["channels"]) else CHANNEL_CANDIDATE
+    channel = CHANNEL_STABLE if channel_released_to_prod(build["channels"], CHANNEL_STABLE) else CHANNEL_CANDIDATE
     return extract_channel_info(
         build_data=build, version=build["csv_version"], bundle_version_key=BUNDLE_VERSION_KEY_VERSION, channel=channel
     )
