@@ -163,16 +163,22 @@ release_checklist_upgrade_plan -v 4.20.2 -c candidate
 
 **Command:** `upgrade_jobs_info`
 
-This tool provides source and target build information for scheduled upgrade job execution. Unlike the release checklist tool which determines upgrade lanes from a target version, this tool takes both source and target versions and returns the specific build details needed for job execution.
+This tool provides source and target build information for scheduled upgrade job execution. It supports both automatic version resolution (fetching latest builds) and specific version inputs.
 
 ### Parameters
 
+| Parameter              | Format                                       | Required | Description                                                                 |
+| ---------------------- | -------------------------------------------- | -------- | --------------------------------------------------------------------------- |
+| `-s, --source-version` | `4.Y`, `4.Y.Z`, or `4.Y.Z.rhelR-BN`          | Yes      | Source version. Use `4.Y` for auto-detection, or specific version/bundle.  |
+| `-t, --target-version` | `4.Y`, `4.Y.Z`, or `4.Y.Z.rhelR-BN`          | Yes      | Target version. Use `4.Y` for auto-detection, or specific version/bundle.  |
 
-| Parameter              | Format           | Required | Description                                                             |
-| ---------------------- | ---------------- | -------- | ----------------------------------------------------------------------- |
-| `-s, --source-version` | `4.Y` or `4.Y.0` | Yes      | Source version. Use `4.Y` for z/y-stream upgrades, `4.Y.0` for latest-z |
-| `-t, --target-version` | `4.Y`            | Yes      | Target minor version                                                    |
+### Specific Version Handling
 
+The tool supports three levels of specificity for versions:
+
+1. **Minor Version (`4.Y`)**: The tool automatically fetches the latest appropriate build based on upgrade rules (e.g., latest stable for source, latest candidate for target).
+2. **Full Version (`4.Y.Z`)**: The tool uses the specific version provided.
+3. **Bundle Version (`4.Y.Z.rhelR-BN`)**: The tool uses the specific bundle build provided.
 
 ### Parameter Constraints
 
@@ -227,17 +233,17 @@ Each upgrade type uses a specific strategy to fetch source and target build info
 ### Usage Examples
 
 ```bash
-# Z-stream upgrade (4.20 -> 4.20)
+# Auto-detect latest versions (4.20 -> 4.20)
 upgrade_jobs_info -s 4.20 -t 4.20
 
-# Y-stream upgrade (4.19 -> 4.20)
-upgrade_jobs_info -s 4.19 -t 4.20
+# Use specific versions
+upgrade_jobs_info -s 4.19.15 -t 4.20.1
 
-# Latest-Z upgrade (4.20.0 -> 4.20)
+# Use specific bundle versions
+upgrade_jobs_info -s 4.20.3.rhel9-31 -t 4.20.5.rhel9-3
+
+# Mix and match (specific source, auto-detect target)
 upgrade_jobs_info -s 4.20.0 -t 4.20
-
-# EUS upgrade (4.18 -> 4.20)
-upgrade_jobs_info -s 4.18 -t 4.20
 ```
 
 ### Sample Output
