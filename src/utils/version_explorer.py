@@ -362,6 +362,136 @@ class CnvVersionExplorer:
             channel=CHANNEL_STABLE,
         )
 
+    # --- Specific Version Methods ---
+
+    def get_build_info(self, bundle_version: str) -> dict:
+        """
+        Get build information by bundle version (4.Y.Z.rhelR-BN format).
+
+        Uses the GetBuildInfo API endpoint.
+
+        Args:
+            bundle_version: Bundle version string (e.g., "4.20.3.rhel9-31")
+
+        Returns:
+            Dictionary with build info including cnv_version, current_channel,
+            channels array, and errata_status
+        """
+        # Prepend 'v' if not present (API expects v4.20.3.rhel9-31)
+        version_param = bundle_version if bundle_version.startswith("v") else f"v{bundle_version}"
+
+        return self.query_with_retry(
+            endpoint="GetBuildInfo",
+            query_string=f"version={version_param}",
+        )
+
+    def get_specific_version_info(
+        self,
+        version: str,
+        required_channel: str | None = None,
+        prefer_stable: bool = True,
+    ) -> dict[str, str]:
+        """
+        Get build info for a specific version (X.Y.Z format).
+
+        Uses get_builds_by_version with errata=true, then applies channel filtering.
+
+        Args:
+            version: Full version string (e.g., "4.20.3")
+            required_channel: If set, require this channel (raise error if not found)
+            prefer_stable: If True and required_channel is None, prefer stable over candidate
+
+        Returns:
+            Dictionary with version, bundle_version, iib, and channel
+
+        Raises:
+            ValueError: If required_channel is specified but not available
+        """
+        build_info = self.get_builds_by_version(version=version, errata_status=ERRATA_STATUS_TRUE)
+
+        if required_channel:
+            if not channel_exists(build_info.get("channels", []), required_channel):
+                raise ValueError(
+                    f"Version {version} does not have {required_channel} channel required for this upgrade type"
+                )
+            return extract_channel_info(
+                build_data=build_info,
+                version=version,
+                bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD,
+                channel=required_channel,
+            )
+
+        # No required channel - apply preference logic
+        if prefer_stable and channel_exists(build_info.get("channels", []), CHANNEL_STABLE):
+            channel = CHANNEL_STABLE
+        elif channel_exists(build_info.get("channels", []), CHANNEL_CANDIDATE):
+            channel = CHANNEL_CANDIDATE
+        else:
+            channel = CHANNEL_STABLE  # Default to stable
+
+        return extract_channel_info(
+            build_data=build_info,
+            version=version,
+            bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD,
+            channel=channel,
+        )
+
+    def get_bundle_version_info(
+        self,
+        bundle_version: str,
+        required_channel: str | None = None,
+        prefer_stable: bool = True,
+    ) -> dict[str, str]:
+        """
+        Get build info for a specific bundle version (X.Y.Z.rhelR-BN format).
+
+        Uses GetBuildInfo API and extracts appropriate channel info.
+
+        Args:
+            bundle_version: Bundle version string (e.g., "4.20.3.rhel9-31")
+            required_channel: If set, require this channel (raise error if not found)
+            prefer_stable: If True and required_channel is None, prefer stable over candidate
+
+        Returns:
+            Dictionary with version, bundle_version, iib, and channel
+
+        Raises:
+            ValueError: If required_channel is specified but not available
+        """
+        build_info = self.get_build_info(bundle_version)
+
+        # Extract base version from cnv_version (e.g., "v4.20.3.rhel9-31" -> "4.20.3")
+        cnv_version = build_info["cnv_version"]
+        base_version = cnv_version.lstrip("v").rsplit(".rhel", 1)[0]
+
+        channels = build_info.get("channels", [])
+
+        if required_channel:
+            if not channel_exists(channels, required_channel):
+                raise ValueError(
+                    f"Bundle version {bundle_version} does not have {required_channel} channel "
+                    f"required for this upgrade type"
+                )
+            channel = required_channel
+        elif prefer_stable and channel_exists(channels, CHANNEL_STABLE):
+            channel = CHANNEL_STABLE
+        elif channel_exists(channels, CHANNEL_CANDIDATE):
+            channel = CHANNEL_CANDIDATE
+        else:
+            channel = CHANNEL_STABLE  # Default to stable
+
+        # Find the channel info
+        channel_info = next((ch for ch in channels if ch.get("channel") == channel), None)
+        if not channel_info:
+            raise ValueError(f"Channel {channel} not found in build info for {bundle_version}")
+
+        return {
+            "version": base_version,
+            "bundle_version": cnv_version.lstrip("v"),
+            "iib": channel_info["iib"],
+            "channel": channel,
+        }
+
 
 # --- Helper functions (stateless, no API dependency) ---
 
