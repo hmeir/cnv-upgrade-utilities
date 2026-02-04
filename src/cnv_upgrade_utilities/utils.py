@@ -11,6 +11,14 @@ import click
 FULL_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")  # 4.Y.z
 MINOR_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)$")  # 4.Y
 SOURCE_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)(\.0)?$")  # 4.Y or 4.Y.0
+BUNDLE_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)\.(0|[1-9]\d*)\.rhel\d+-\d+$")  # 4.Y.Z.rhelR-BN
+
+# Unified pattern accepting all three formats: 4.Y, 4.Y.Z, or 4.Y.Z.rhelR-BN
+FLEXIBLE_VERSION_PATTERN = re.compile(
+    r"^4\.(0|[1-9]\d*)"  # 4.Y (required base)
+    r"(?:\.(0|[1-9]\d*)"  # .Z (optional)
+    r"(?:\.rhel\d+-\d+)?)?$"  # .rhelR-BN (optional, only if .Z exists)
+)
 
 # ============================================================================
 # Version Configuration
@@ -75,6 +83,47 @@ class UpgradeType(Enum):
                 return z == 0 and minor % 2 == 0
             case _:
                 return False
+
+
+# ============================================================================
+# Version Format Enumeration
+# ============================================================================
+class VersionFormat(Enum):
+    """
+    Enum representing different version format types.
+
+    Used to detect and handle the three supported version formats:
+    - MINOR: X.Y (e.g., 4.20)
+    - FULL: X.Y.Z (e.g., 4.20.3)
+    - BUNDLE: X.Y.Z.rhelR-BN (e.g., 4.20.3.rhel9-18)
+    """
+
+    MINOR = "minor"
+    FULL = "full"
+    BUNDLE = "bundle"
+
+
+def detect_version_format(version: str) -> VersionFormat:
+    """
+    Detect the format of a version string.
+
+    Args:
+        version: Version string to analyze
+
+    Returns:
+        VersionFormat enum value
+
+    Raises:
+        ValueError: If version format is not recognized
+    """
+    if BUNDLE_VERSION_PATTERN.match(version):
+        return VersionFormat.BUNDLE
+    elif FULL_VERSION_PATTERN.match(version):
+        return VersionFormat.FULL
+    elif MINOR_VERSION_PATTERN.match(version):
+        return VersionFormat.MINOR
+    else:
+        raise ValueError(f"Unrecognized version format: {version}")
 
 
 # ============================================================================
@@ -185,10 +234,28 @@ class SourceVersionParamType(click.ParamType):
         return value
 
 
+class FlexibleVersionParamType(click.ParamType):
+    """Click parameter type for flexible version validation (4.Y, 4.Y.Z, or 4.Y.Z.rhelR-BN)."""
+
+    name = "flexible_version"
+
+    def convert(self, value, param, ctx):
+        if not FLEXIBLE_VERSION_PATTERN.match(value):
+            self.fail(
+                f"Invalid version format: '{value}'. Expected format: "
+                f"4.Y (e.g., 4.20), 4.Y.Z (e.g., 4.20.3), or "
+                f"4.Y.Z.rhelR-BN (e.g., 4.20.3.rhel9-18)",
+                param,
+                ctx,
+            )
+        return value
+
+
 # Pre-instantiated param types for convenience
 FULL_VERSION_TYPE = FullVersionParamType()
 MINOR_VERSION_TYPE = MinorVersionParamType()
 SOURCE_VERSION_TYPE = SourceVersionParamType()
+FLEXIBLE_VERSION_TYPE = FlexibleVersionParamType()
 
 
 # ============================================================================
@@ -201,9 +268,50 @@ def parse_minor_version(version: str) -> int:
     return int(version.split(".")[1])
 
 
+def parse_patch_version(version: str) -> int | None:
+    """
+    Extract the patch version number from a full version string (4.Y.z).
+
+    Returns None for minor-only versions (4.Y).
+
+    Args:
+        version: Version string (4.Y, 4.Y.z, or 4.Y.z.rhelR-BN format)
+
+    Returns:
+        Patch version number or None if not a full version
+    """
+    version_format = detect_version_format(version)
+    if version_format == VersionFormat.BUNDLE:
+        # Extract from bundle: 4.20.3.rhel9-18 -> 3
+        parts = version.rsplit(".rhel", 1)[0].split(".")
+        return int(parts[2]) if len(parts) >= 3 else None
+    elif version_format == VersionFormat.FULL:
+        parts = version.split(".")
+        return int(parts[2])
+    return None
+
+
 def is_latest_z_source(source_version: str) -> bool:
-    """Check if source version is in 4.Y.0 format (latest-z upgrade)."""
-    return source_version.endswith(".0")
+    """
+    Check if source version indicates a latest-z upgrade (4.Y.0 format).
+
+    This checks for explicit 4.Y.0 format - minor versions (4.Y) and
+    bundle versions (4.Y.0.rhelR-BN) return False.
+
+    Args:
+        source_version: Version string to check
+
+    Returns:
+        True if version is 4.Y.0 format (latest-z source)
+    """
+    version_format = detect_version_format(source_version)
+
+    if version_format == VersionFormat.FULL:
+        # Check if patch is 0
+        parts = source_version.split(".")
+        return int(parts[2]) == 0
+
+    return False
 
 
 def is_eus_version(minor: int) -> bool:
@@ -226,6 +334,27 @@ def format_minor_version(version: str, prefix: str = "v") -> str:
     return f"{prefix}{parts[0]}.{parts[1]}"
 
 
+def extract_base_version(version: str) -> str:
+    """
+    Extract the base version (X.Y.Z) from any version format.
+
+    For bundle versions (4.20.3.rhel9-18), strips the rhel suffix.
+    For full versions (4.20.3), returns as-is.
+    For minor versions (4.20), returns as-is.
+
+    Args:
+        version: Version string in any supported format
+
+    Returns:
+        Base version string (e.g., "4.20.3" or "4.20")
+    """
+    version_format = detect_version_format(version)
+    if version_format == VersionFormat.BUNDLE:
+        # Strip the .rhelR-BN suffix
+        return version.rsplit(".rhel", 1)[0]
+    return version
+
+
 def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeType:
     """
     Determine the upgrade type based on source and target versions.
@@ -244,12 +373,22 @@ def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeT
         UpgradeType enum value
 
     Raises:
-        ValueError: If the upgrade is unsupported
+        ValueError: If the upgrade is unsupported (same version, downgrade, etc.)
     """
     source_minor = parse_minor_version(source_version)
     target_minor = parse_minor_version(target_version)
+    source_patch = parse_patch_version(source_version)
+    target_patch = parse_patch_version(target_version)
 
-    # Check for latest-z first (source is 4.Y.0)
+    # Edge case: Exact same version (must fail before any other checks)
+    if source_patch is not None and target_patch is not None:
+        if source_minor == target_minor and source_patch == target_patch:
+            raise ValueError(
+                f"Invalid upgrade: source and target are the same version. "
+                f"source={source_version}, target={target_version}"
+            )
+
+    # Check for latest-z (source is 4.Y.0)
     if is_latest_z_source(source_version):
         if source_minor != target_minor:
             raise ValueError(
@@ -261,6 +400,13 @@ def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeT
     version_diff = target_minor - source_minor
 
     if version_diff == 0:
+        # Z-stream downgrade check (e.g., 4.20.5 -> 4.20.4)
+        if source_patch is not None and target_patch is not None:
+            if source_patch > target_patch:
+                raise ValueError(
+                    f"Invalid upgrade: cannot downgrade within z-stream. "
+                    f"source={source_version}, target={target_version}"
+                )
         return UpgradeType.Z_STREAM
     elif version_diff == 1:
         return UpgradeType.Y_STREAM
@@ -271,6 +417,8 @@ def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeT
             f"Unsupported upgrade: EUS upgrade requires both versions to be even. "
             f"source={source_version} (minor={source_minor}), target={target_version} (minor={target_minor})"
         )
+    elif version_diff < 0:
+        raise ValueError(f"Invalid upgrade: cannot downgrade. source={source_version}, target={target_version}")
 
     raise ValueError(f"Unsupported upgrade: source={source_version}, target={target_version}")
 

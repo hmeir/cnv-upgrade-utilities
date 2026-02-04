@@ -2,12 +2,10 @@
 
 This repository contains a collection of utilities designed to assist with CNV (Container Native Virtualization) upgrade testing, release management, and automation.
 
-
 ## Prerequisites
 
 - Python >= 3.12
 - Access to the Version Explorer API (for relevant tools).
-
 
 ## Installation
 
@@ -22,6 +20,7 @@ uv tool install .
 ```
 
 This makes the following commands available globally:
+
 - `release_checklist_upgrade_plan`
 - `upgrade_jobs_info`
 - `all_versions_upgrade_plan`
@@ -31,7 +30,30 @@ This makes the following commands available globally:
 ```bash
 git clone https://github.com/hmeir/cnv-upgrade-utilities.git
 cd cnv-upgrade-utilities
-uv sync
+uv sync --extra dev
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run with verbose output
+uv run pytest -v
+
+# Run specific test file
+uv run pytest tests/test_utils.py
+```
+
+### Linting and Formatting
+
+```bash
+# Run linter
+uv run ruff check src/ tests/
+
+# Run formatter
+uv run ruff format src/ tests/
 ```
 
 ## Configuration
@@ -44,42 +66,52 @@ export VERSION_EXPLORER_URL="http://<your-version-explorer-host>"
 
 # Tools & Features
 
-##  Upgrade Release Checklist Generator
+## Upgrade Release Checklist Generator
+
 **Command:** `release_checklist_upgrade_plan`
 
-* The target channel must be "stable"!
+- The target channel must be "stable"!
 
 This tool automates the generation of upgrade paths (lanes) for CNV release checklists. It determines the appropriate source versions and post-upgrade test suites based on the target release version and defined upgrade rules.
-
 
 The checklist tool categorizes the target version (`4.Y.z`) into three main buckets based on the Z-stream component.
 
 ### 1. Major Release (Z = 0)
-*Target Pattern: `4.Y.0`*
 
-| Upgrade Type | Source Version | Post-Upgrade Suite | Condition |
-|--------------|----------------|-------------------|-----------|
-| **Y Stream** | Latest `4.(Y-1).z` | `UTS-FULL` | Always |
-| **EUS** | Latest `4.(Y-2).z` | `UTS-Marker` | Only if `Y` is even |
+*Target Pattern: `4.Y.0*`
+
+
+| Upgrade Type | Source Version     | Post-Upgrade Suite | Condition           |
+| ------------ | ------------------ | ------------------ | ------------------- |
+| **Y Stream** | Latest `4.(Y-1).z` | `UTS-FULL`         | Always              |
+| **EUS**      | Latest `4.(Y-2).z` | `UTS-Marker`       | Only if `Y` is even |
+
 
 ### 2. First Maintenance Release (Z = 1)
-*Target Pattern: `4.Y.1`*
 
-| Upgrade Type | Source Version | Post-Upgrade Suite |
-|--------------|----------------|-------------------|
-| **Y Stream** | Latest `4.(Y-1).z` | `UTS-FULL` |
-| **Z Stream** | Latest `4.Y.z` (typically `4.Y.0`) | `UTS-Marker` |
+*Target Pattern: `4.Y.1*`
+
+
+| Upgrade Type | Source Version                     | Post-Upgrade Suite |
+| ------------ | ---------------------------------- | ------------------ |
+| **Y Stream** | Latest `4.(Y-1).z`                 | `UTS-FULL`         |
+| **Z Stream** | Latest `4.Y.z` (typically `4.Y.0`) | `UTS-Marker`       |
+
 
 ### 3. Maintenance Releases (Z >= 2)
-*Target Pattern: `4.Y.2+`*
 
-| Upgrade Type | Source Version | Post-Upgrade Suite |
-|--------------|----------------|-------------------|
-| **Y Stream** | Latest `4.(Y-1).z` | `UTS-Marker` |
-| **Z Stream** | Latest `4.Y.z` | `NONE` |
-| **Latest Z** | `4.Y.0` | `NONE` |
+*Target Pattern: `4.Y.2+*`
+
+
+| Upgrade Type | Source Version     | Post-Upgrade Suite |
+| ------------ | ------------------ | ------------------ |
+| **Y Stream** | Latest `4.(Y-1).z` | `UTS-Marker`       |
+| **Z Stream** | Latest `4.Y.z`     | `NONE`             |
+| **Latest Z** | `4.Y.0`            | `NONE`             |
+
 
 ### Key Terms
+
 - **Y Stream**: Upgrading from the previous minor version (e.g., 4.19 -> 4.20).
 - **Z Stream**: Upgrading within the same minor version (e.g., 4.20.0 -> 4.20.1).
 - **Latest Z**: Upgradeing within the same minor version, from 4.Y.0 (e.g 4.20.0 -> 4.20.2)
@@ -87,12 +119,12 @@ The checklist tool categorizes the target version (`4.Y.z`) into three main buck
 - **UTS-FULL**: Full test suite.
 - **UTS-Marker**: Post Upgrade Marker (a reduced test suite).
 
-
 ## Using the Release Checklist Tool
 
 Run the command by providing the target version using the `-v` (or `--target-version`) flag.
 
 **Basic Example:**
+
 ```bash
 release_checklist_upgrade_plan -v 4.20.2
 ```
@@ -148,37 +180,60 @@ This tool provides source and target build information for scheduled upgrade job
 
 ### Parameters
 
-| Parameter | Format | Required | Description |
-|-----------|--------|----------|-------------|
-| `-s, --source-version` | `4.Y` or `4.Y.0` | Yes | Source version. Use `4.Y` for z/y-stream upgrades, `4.Y.0` for latest-z |
-| `-t, --target-version` | `4.Y` | Yes | Target minor version |
+
+| Parameter              | Format           | Required | Description                                                             |
+| ---------------------- | ---------------- | -------- | ----------------------------------------------------------------------- |
+| `-s, --source-version` | `4.Y` or `4.Y.0` | Yes      | Source version. Use `4.Y` for z/y-stream upgrades, `4.Y.0` for latest-z |
+| `-t, --target-version` | `4.Y`            | Yes      | Target minor version                                                    |
+
 
 ### Parameter Constraints
 
 - For **latest-z** upgrades, source must end with `.0` and have the same Y as target
 - For **EUS** upgrades, both source and target minor versions must be even numbers
 
+### Upgrade Validation
+
+The tool validates upgrade paths and rejects invalid upgrade scenarios with clear error messages:
+
+
+| Invalid Scenario          | Example           | Error                                 |
+| ------------------------- | ----------------- | ------------------------------------- |
+| **Same version**          | `4.20.5 → 4.20.5` | Cannot upgrade to the same version    |
+| **Z-stream downgrade**    | `4.20.5 → 4.20.4` | Cannot downgrade within z-stream      |
+| **Y-stream downgrade**    | `4.21 → 4.20`     | Cannot downgrade                      |
+| **Version gap > 2**       | `4.18 → 4.21`     | Unsupported upgrade (gap of 3)        |
+| **EUS with odd versions** | `4.19 → 4.21`     | EUS requires both versions to be even |
+| **Latest-z cross-minor**  | `4.19.0 → 4.20`   | Latest-z requires same minor version  |
+
+
+**Note:** `4.20 → 4.20` (minor format) is a valid Z-stream lookup. Only exact same full versions (e.g., `4.20.5 → 4.20.5`) are rejected.
+
 ### Upgrade Type Detection Strategy
 
 The tool automatically determines the upgrade type based on the source and target versions:
 
-| Source | Target | Upgrade Type | Description |
-|--------|--------|--------------|-------------|
-| `4.Y` | `4.Y` | Z-stream | Same minor version |
-| `4.Y` | `4.(Y+1)` | Y-stream | One minor version difference |
-| `4.Y.0` | `4.Y` | Latest-Z | Source is .0 release, same minor |
-| `4.Y` | `4.(Y+2)` | EUS | Two minor versions, both even |
+
+| Source  | Target    | Upgrade Type | Description                      |
+| ------- | --------- | ------------ | -------------------------------- |
+| `4.Y`   | `4.Y`     | Z-stream     | Same minor version               |
+| `4.Y`   | `4.(Y+1)` | Y-stream     | One minor version difference     |
+| `4.Y.0` | `4.Y`     | Latest-Z     | Source is .0 release, same minor |
+| `4.Y`   | `4.(Y+2)` | EUS          | Two minor versions, both even    |
+
 
 ### Fetch Strategy by Upgrade Type
 
 Each upgrade type uses a specific strategy to fetch source and target build information:
 
-| Upgrade Type | Source Fetch | Target Fetch |
-|--------------|--------------|--------------|
-| **Z-stream** | Latest stable released to prod | Latest candidate (or latest stable in QE) |
+
+| Upgrade Type | Source Fetch                       | Target Fetch                                                         |
+| ------------ | ---------------------------------- | -------------------------------------------------------------------- |
+| **Z-stream** | Latest stable released to prod     | Latest candidate (or latest stable in QE)                            |
 | **Y-stream** | Latest Y-1 stable released to prod | Latest build with **stable channel** and errata (includes QE builds) |
-| **Latest-Z** | 4.Y.0 release info | Latest candidate (or latest stable in QE) |
-| **EUS** | Latest Y stable released to prod | Latest build with **stable channel** and errata (includes QE builds) |
+| **Latest-Z** | 4.Y.0 release info                 | Latest candidate (or latest stable in QE)                            |
+| **EUS**      | Latest Y stable released to prod   | Latest build with **stable channel** and errata (includes QE builds) |
+
 
 **Note:** Y-stream and EUS upgrades require the target to have a stable channel. Z-stream and Latest-Z upgrades can use either candidate or stable channels.
 
@@ -201,11 +256,13 @@ upgrade_jobs_info -s 4.18 -t 4.20
 ### Sample Output
 
 For a Z-stream upgrade command:
+
 ```bash
 upgrade_jobs_info -s 4.20 -t 4.20
 ```
 
 Output:
+
 ```json
 {
   "upgrade_type": "z_stream",
@@ -232,14 +289,17 @@ This tool batch generates upgrade plans for all supported CNV minor versions. It
 
 ### Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `-o, --output-dir` | `./upgrade_plans` | Output directory for JSON files |
-| `--summary/--no-summary` | `--summary` | Generate combined summary file |
+
+| Parameter                | Default           | Description                     |
+| ------------------------ | ----------------- | ------------------------------- |
+| `-o, --output-dir`       | `./upgrade_plans` | Output directory for JSON files |
+| `--summary/--no-summary` | `--summary`       | Generate combined summary file  |
+
 
 ### Supported Versions
 
 The tool generates upgrade plans for the following CNV versions:
+
 - 4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20, 4.21
 
 ### Strategy
@@ -283,4 +343,8 @@ Each individual file contains the same structure as the output from `release_che
 
 # Contributing
 
-Contributions are welcome! Please ensure code follows the project's style guidelines (enforced via `ruff` and `flake8`).
+Contributions are welcome! Please ensure:
+
+1. Code follows the project's style guidelines (enforced via `ruff` and `flake8`)
+2. All tests pass (`uv run pytest`)
+3. New functionality includes appropriate unit tests
