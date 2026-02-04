@@ -16,7 +16,6 @@ dev = [
     "pre-commit>=4.0.0",
     "ruff>=0.8.0",
     "flake8>=7.1.0",
-    "pytest>=8.0.0",
 ]
 
 [project.scripts]
@@ -52,8 +51,3 @@ ignore = [
 
 [tool.ruff.format]
 quote-style = "double"
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
-addopts = "-v --tb=short"

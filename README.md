@@ -33,19 +33,6 @@ cd cnv-upgrade-utilities
 uv sync --extra dev
 ```
 
-### Running Tests
-
-```bash
-# Run all tests
-uv run pytest
-
-# Run with verbose output
-uv run pytest -v
-
-# Run specific test file
-uv run pytest tests/test_utils.py
-```
-
 ### Linting and Formatting
 
 ```bash
@@ -346,5 +333,3 @@ Each individual file contains the same structure as the output from `release_che
 Contributions are welcome! Please ensure:
 
 1. Code follows the project's style guidelines (enforced via `ruff` and `flake8`)
-2. All tests pass (`uv run pytest`)
-3. New functionality includes appropriate unit tests
