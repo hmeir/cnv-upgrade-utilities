@@ -5,14 +5,14 @@ from dataclasses import asdict, dataclass
 import click
 from packaging.version import Version
 
-from cnv_upgrade_utilities.utils import FULL_VERSION_TYPE, get_applicable_upgrade_types, get_post_upgrade_suite
-from utils.constants import (
-    BUNDLE_VERSION_KEY_CNV_BUILD,
-    CHANNEL_STABLE,
-    ERRATA_STATUS_TRUE,
-    VALID_CHANNELS,
+from cnv_upgrade_utilities.utils import (
+    FULL_VERSION_TYPE,
+    MINOR_VERSION_SEARCH_RANGE,
+    get_applicable_upgrade_types,
+    get_post_upgrade_suite,
 )
-from utils.version_explorer import CnvVersionExplorer, extract_channel_info
+from utils.constants import CHANNEL_STABLE, VALID_CHANNELS
+from utils.version_explorer import CnvVersionExplorer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -46,56 +46,80 @@ class ReleaseChecklistUpgradeEntry:
         )
 
 
-def fetch_source_version(
-    explorer: CnvVersionExplorer, target_version: Version, minor_offset: int | None = None
-) -> dict | None:
+def fetch_target_version(explorer: CnvVersionExplorer, target_version: Version) -> dict[str, str]:
     """
-    Fetch latest stable source version info for given minor offset.
+    Fetch target version build info. Target must have a stable channel.
 
     Args:
         explorer: CnvVersionExplorer instance
         target_version: Target version to upgrade to
-        minor_offset: Offset to apply when fetching source version
 
     Returns:
-        Source version info dict if found, None otherwise
+        Build info dict with version, bundle_version, iib, and channel
+    """
+    return explorer.get_version_builds_info(
+        version=str(target_version),
+        stable_required=True,
+    )
+
+
+def fetch_source_version(
+    explorer: CnvVersionExplorer, target_version: Version, minor_offset: int | None = None
+) -> dict[str, str]:
+    """
+    Fetch source version build info. Source must be stable and released to prod.
+
+    For LATEST_Z (minor_offset=None): source is 4.Y.0, fetched as a specific version.
+    For other upgrade types: source minor is derived from target, searched via version range.
+
+    Args:
+        explorer: CnvVersionExplorer instance
+        target_version: Target version to upgrade to
+        minor_offset: Offset to apply to target minor for source version
+
+    Returns:
+        Build info dict with version, bundle_version, iib, and channel
     """
     if minor_offset is None:
         version = f"{target_version.major}.{target_version.minor}.0"
-        # For "latest z" type, return minimal info
-        build_info = explorer.get_builds_by_version(version=version, errata_status=ERRATA_STATUS_TRUE)
-        source_info = extract_channel_info(
-            build_data=build_info,
+        return explorer.get_version_builds_info(
             version=version,
-            bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD,
-            channel=CHANNEL_STABLE,
+            stable_required=True,
+            require_released_to_prod=True,
         )
-    else:
-        minor = f"v{target_version.major}.{target_version.minor + minor_offset}"
-        source_info = explorer.get_latest_released_z_stream_info(minor_version=minor, channel=CHANNEL_STABLE)
-    return source_info
+
+    source_minor = f"{target_version.major}.{target_version.minor + minor_offset}"
+    if source_minor not in MINOR_VERSION_SEARCH_RANGE:
+        raise ValueError(f"No search range configured for minor version {source_minor}")
+    start_version, stop_version = MINOR_VERSION_SEARCH_RANGE[source_minor]
+    return explorer.get_version_range_builds_info(
+        start_version=start_version,
+        stop_version=stop_version,
+        stable_required=True,
+        require_released_to_prod=True,
+    )
 
 
 def get_upgrade_paths_info(explorer: CnvVersionExplorer, target_version: Version) -> dict:
     """
     Get upgrade paths info for a target version.
 
-    Uses data-driven configuration to determine upgrade types based on
-    the z-stream value and whether the version is EUS-eligible.
+    Fetches target build info (must be stable), then builds upgrade lanes
+    with source versions (must be stable and released to prod).
 
     Args:
         explorer: CnvVersionExplorer instance
         target_version: Version object to categorize
 
     Returns:
-        Dictionary containing target version, version type, and upgrade configurations
+        Dictionary containing target build info and upgrade configurations
     """
-    # Get all applicable upgrade types for this version
+    target_info = fetch_target_version(explorer, target_version)
+
     upgrade_types = get_applicable_upgrade_types(
         target_minor=target_version.minor,
         target_z=target_version.micro,
     )
-    # Build upgrade entries with source versions
     upgrade_lanes = {
         upgrade_type.display_name: asdict(
             ReleaseChecklistUpgradeEntry.generate_info(
@@ -106,7 +130,8 @@ def get_upgrade_paths_info(explorer: CnvVersionExplorer, target_version: Version
         for upgrade_type in upgrade_types
     }
     return {
-        "target_version": target_version,
+        "target_version": str(target_version),
+        "target_build_info": target_info,
         "upgrade_lanes": upgrade_lanes,
     }
 

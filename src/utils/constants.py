@@ -23,6 +23,7 @@ BUNDLE_VERSION_KEY_VERSION = "version"
 # ============================================================================
 ERRATA_STATUS_SHIPPED_LIVE = "SHIPPED_LIVE"
 ERRATA_STATUS_TRUE = "true"
+ERRATA_STATUS_FALSE = "false"
 
 
 # ============================================================================

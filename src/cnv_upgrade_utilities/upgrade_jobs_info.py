@@ -5,11 +5,11 @@ import click
 
 from cnv_upgrade_utilities.utils import (
     FLEXIBLE_VERSION_TYPE,
+    MINOR_VERSION_SEARCH_RANGE,
     UpgradeType,
     VersionFormat,
     detect_version_format,
     determine_upgrade_type,
-    format_minor_version,
 )
 from utils.constants import CHANNEL_STABLE
 from utils.version_explorer import CnvVersionExplorer
@@ -18,7 +18,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 # ============================================================================
-# Fetch Strategy Configuration
+# Result Building
 # ============================================================================
 def build_result(upgrade_type: UpgradeType, source_info: dict, target_info: dict) -> dict:
     """Build the result dictionary with source and target info."""
@@ -39,105 +39,117 @@ def build_result(upgrade_type: UpgradeType, source_info: dict, target_info: dict
     }
 
 
-def get_z_stream_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, target_minor: str) -> tuple[dict, dict]:
-    """
-    Get upgrade info for Z-stream upgrade (same minor version).
-
-    Logic:
-    1. source: latest stable released to prod
-    2. target: latest candidate released to prod
-       - If candidate bundle_version matches source's stable, use stable instead
-    """
-    source_info = explorer.get_latest_released_z_stream_info(minor_version=source_minor, channel=CHANNEL_STABLE)
-    target_info = explorer.get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
-
-    return source_info, target_info
-
-
-def get_y_stream_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, target_minor: str) -> tuple[dict, dict]:
-    """
-    Get upgrade info for Y-stream upgrade (target = source + 1).
-
-    Logic:
-    1. source: latest Y-1 stable released to prod
-    2. target: latest build with stable channel and errata (includes QE builds)
-
-    Note: Y-stream upgrades require the target to have a stable channel.
-    """
-    source_info = explorer.get_latest_released_z_stream_info(minor_version=source_minor, channel=CHANNEL_STABLE)
-    target_info = explorer.get_latest_stable_build_with_errata_info(minor_version=target_minor)
-
-    return source_info, target_info
-
-
-def get_latest_z_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, target_minor: str) -> tuple[dict, dict]:
-    """
-    Get upgrade info for latest-z upgrade (source is 4.Y.0).
-
-    Logic:
-    1. source: 4.Y.0 release info
-    2. target: latest candidate released to prod, pick its stable if available
-    """
-    source_info = explorer.get_z0_release_info(minor_version=source_minor)
-    target_info = explorer.get_latest_candidate_with_stable_fallback_info(minor_version=target_minor)
-
-    return source_info, target_info
-
-
-def get_eus_upgrade_info(explorer: CnvVersionExplorer, source_minor: str, target_minor: str) -> tuple[dict, dict]:
-    """
-    Get upgrade info for EUS upgrade (target = source + 2, both even).
-
-    Logic:
-    1. source: latest Y stable released to prod
-    2. target: latest build with stable channel and errata (includes QE builds)
-
-    Note: EUS upgrades require the target to have a stable channel.
-    """
-    source_info = explorer.get_latest_released_z_stream_info(minor_version=source_minor, channel=CHANNEL_STABLE)
-    target_info = explorer.get_latest_stable_build_with_errata_info(minor_version=target_minor)
-
-    return source_info, target_info
-
-
-# Map upgrade types to their handler functions (for MINOR format - fetch latest)
-UPGRADE_HANDLERS = {
-    UpgradeType.Z_STREAM: get_z_stream_upgrade_info,
-    UpgradeType.Y_STREAM: get_y_stream_upgrade_info,
-    UpgradeType.LATEST_Z: get_latest_z_upgrade_info,
-    UpgradeType.EUS: get_eus_upgrade_info,
-}
-
-
 # ============================================================================
-# Version Info Fetching
+# Source Version Fetching
 # ============================================================================
-def get_channel_requirements(upgrade_type: UpgradeType, is_source: bool) -> tuple[str | None, bool]:
+def _fetch_source_info(
+    explorer: CnvVersionExplorer,
+    version: str,
+    version_format: VersionFormat,
+    upgrade_type: UpgradeType,
+) -> dict[str, str]:
     """
-    Get channel requirements based on upgrade type and source/target context.
+    Fetch source version info. Source always requires stable channel released to prod.
+
+    For MINOR and FULL formats, queries GetSuccessfulBuildsByVersion with
+    errata_status=false, iterating builds to find a stable channel released to prod.
+    BUNDLE format uses GetBuildInfo directly (same as before).
 
     Args:
-        upgrade_type: The upgrade type
-        is_source: True if fetching source version, False for target
+        explorer: CnvVersionExplorer instance
+        version: Version string in any supported format
+        version_format: Detected format of the version
+        upgrade_type: The determined upgrade type
 
     Returns:
-        Tuple of (required_channel, prefer_stable):
-        - required_channel: Channel that must exist (error if missing), or None
-        - prefer_stable: If True, prefer stable over candidate when no requirement
+        Dictionary with version, bundle_version, iib, and channel
     """
-    if is_source:
-        # Source always requires stable channel
-        return CHANNEL_STABLE, True
+    match version_format:
+        case VersionFormat.MINOR:
+            if version not in MINOR_VERSION_SEARCH_RANGE:
+                raise ValueError(f"No search range configured for minor version {version}")
+            start_version, stop_version = MINOR_VERSION_SEARCH_RANGE[version]
+            return explorer.get_version_range_builds_info(
+                start_version=start_version,
+                stop_version=stop_version,
+                stable_required=True,
+                require_released_to_prod=True,
+            )
 
-    # Target channel requirements depend on upgrade type
-    if upgrade_type in (UpgradeType.Y_STREAM, UpgradeType.EUS):
-        # Y-stream and EUS require stable channel for target
-        return CHANNEL_STABLE, True
-    else:
-        # Z-stream and latest-z prefer candidate, fallback to stable
-        return None, True
+        case VersionFormat.FULL:
+            return explorer.get_version_builds_info(
+                version=version,
+                stable_required=True,
+                require_released_to_prod=True,
+            )
+
+        case VersionFormat.BUNDLE:
+            return explorer.get_bundle_version_info(
+                bundle_version=version,
+                required_channel=CHANNEL_STABLE,
+                prefer_stable=True,
+            )
 
 
+# ============================================================================
+# Target Version Fetching
+# ============================================================================
+def _fetch_target_info(
+    explorer: CnvVersionExplorer,
+    version: str,
+    version_format: VersionFormat,
+    upgrade_type: UpgradeType,
+) -> dict[str, str]:
+    """
+    Fetch target version info.
+
+    Channel logic: Y-stream and EUS upgrades require a stable channel.
+    Z-stream and latest-z prefer stable but fall back to candidate.
+
+    For MINOR and FULL formats, queries GetSuccessfulBuildsByVersion with
+    errata_status=false, iterating builds to find a stable channel first.
+    BUNDLE format uses GetBuildInfo directly (same as before).
+
+    Args:
+        explorer: CnvVersionExplorer instance
+        version: Version string in any supported format
+        version_format: Detected format of the version
+        upgrade_type: The determined upgrade type
+
+    Returns:
+        Dictionary with version, bundle_version, iib, and channel
+    """
+    stable_required = upgrade_type in (UpgradeType.Y_STREAM, UpgradeType.EUS)
+
+    match version_format:
+        case VersionFormat.MINOR:
+            if version not in MINOR_VERSION_SEARCH_RANGE:
+                raise ValueError(f"No search range configured for minor version {version}")
+            start_version, stop_version = MINOR_VERSION_SEARCH_RANGE[version]
+            return explorer.get_version_range_builds_info(
+                start_version=start_version,
+                stop_version=stop_version,
+                stable_required=stable_required,
+            )
+
+        case VersionFormat.FULL:
+            return explorer.get_version_builds_info(
+                version=version,
+                stable_required=stable_required,
+            )
+
+        case VersionFormat.BUNDLE:
+            required_channel = CHANNEL_STABLE if stable_required else None
+            return explorer.get_bundle_version_info(
+                bundle_version=version,
+                required_channel=required_channel,
+                prefer_stable=True,
+            )
+
+
+# ============================================================================
+# Main Entry Point
+# ============================================================================
 def fetch_version_info(
     explorer: CnvVersionExplorer,
     version: str,
@@ -147,10 +159,8 @@ def fetch_version_info(
     """
     Fetch version info based on version format and upgrade context.
 
-    Routes to appropriate fetch method based on detected version format:
-    - MINOR (4.Y): Uses existing handlers to fetch latest
-    - FULL (4.Y.Z): Uses get_specific_version_info with channel filtering
-    - BUNDLE (4.Y.Z.rhelR-BN): Uses get_bundle_version_info with channel filtering
+    Routes to _fetch_source_info or _fetch_target_info based on context,
+    then to the appropriate fetch method based on detected version format.
 
     Args:
         explorer: CnvVersionExplorer instance
@@ -162,69 +172,11 @@ def fetch_version_info(
         Dictionary with version, bundle_version, iib, and channel
     """
     version_format = detect_version_format(version)
-    required_channel, prefer_stable = get_channel_requirements(upgrade_type, is_source)
-
-    match version_format:
-        case VersionFormat.MINOR:
-            # Use existing logic to fetch latest
-            return _fetch_latest_version_info(explorer, version, is_source, upgrade_type)
-
-        case VersionFormat.FULL:
-            # Specific version - use get_specific_version_info
-            return explorer.get_specific_version_info(
-                version=version,
-                required_channel=required_channel,
-                prefer_stable=prefer_stable,
-            )
-
-        case VersionFormat.BUNDLE:
-            # Bundle version - use get_bundle_version_info
-            return explorer.get_bundle_version_info(
-                bundle_version=version,
-                required_channel=required_channel,
-                prefer_stable=prefer_stable,
-            )
-
-
-def _fetch_latest_version_info(
-    explorer: CnvVersionExplorer,
-    version: str,
-    is_source: bool,
-    upgrade_type: UpgradeType,
-) -> dict[str, str]:
-    """
-    Fetch latest version info for minor version format (existing behavior).
-
-    This preserves the existing logic for X.Y format versions.
-
-    Args:
-        explorer: CnvVersionExplorer instance
-        version: Minor version string (e.g., "4.20")
-        is_source: True if fetching source, False for target
-        upgrade_type: The upgrade type
-
-    Returns:
-        Dictionary with version, bundle_version, iib, and channel
-    """
-    minor_version = format_minor_version(version)
 
     if is_source:
-        if upgrade_type == UpgradeType.LATEST_Z:
-            # Source for latest-z is 4.Y.0
-            return explorer.get_z0_release_info(minor_version=minor_version)
-        else:
-            # All other sources: latest stable released to prod
-            return explorer.get_latest_released_z_stream_info(
-                minor_version=minor_version,
-                channel=CHANNEL_STABLE,
-            )
+        return _fetch_source_info(explorer, version, version_format, upgrade_type)
     else:
-        # Target version
-        if upgrade_type in (UpgradeType.Z_STREAM, UpgradeType.LATEST_Z):
-            return explorer.get_latest_candidate_with_stable_fallback_info(minor_version=minor_version)
-        else:
-            # Y_STREAM and EUS require stable
-            return explorer.get_latest_stable_build_with_errata_info(minor_version=minor_version)
+        return _fetch_target_info(explorer, version, version_format, upgrade_type)
 
 
 def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, target_version: str) -> dict:
@@ -232,8 +184,8 @@ def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, tar
     Get upgrade jobs info for source and target versions.
 
     Supports three version formats for both source and target:
-    - X.Y (e.g., 4.20): Fetches latest version matching the criteria
-    - X.Y.Z (e.g., 4.20.3): Uses specific version via get_builds_by_version
+    - X.Y (e.g., 4.20): Searches a configured version range for target, fetches latest for source
+    - X.Y.Z (e.g., 4.20.3): Uses specific version via GetSuccessfulBuildsByVersion
     - X.Y.Z.rhelR-BN (e.g., 4.20.3.rhel9-18): Uses specific bundle version via GetBuildInfo
 
     Args:

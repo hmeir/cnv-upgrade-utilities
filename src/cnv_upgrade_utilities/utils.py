@@ -25,6 +25,20 @@ FLEXIBLE_VERSION_PATTERN = re.compile(
 # ============================================================================
 SKIP_Y_STREAM_UPGRADE_MINORS = frozenset({12, 14})
 
+# Version search range for MINOR format: minor_version -> (start_version, stop_version)
+# When a version is specified as minor (e.g., "4.20"), we search from start down to stop
+# (inclusive) looking for the first version with successful builds.
+MINOR_VERSION_SEARCH_RANGE: dict[str, tuple[str, str]] = {
+    "4.12": ("4.12.24", "4.12.23"),
+    "4.14": ("4.14.18", "4.14.17"),
+    "4.16": ("4.16.34", "4.16.28"),
+    "4.17": ("4.17.45", "4.17.43"),
+    "4.18": ("4.18.32", "4.18.23"),
+    "4.19": ("4.19.20", "4.19.18"),
+    "4.20": ("4.20.10", "4.20.7"),
+    "4.21": ("4.21.3", "4.21.1"),
+}
+
 # ============================================================================
 # Post-Upgrade Suite Constants
 # ============================================================================

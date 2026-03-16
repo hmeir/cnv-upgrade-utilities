@@ -16,7 +16,7 @@ from utils.constants import (
     CHANNEL_CANDIDATE,
     CHANNEL_STABLE,
     ENV_VERSION_EXPLORER_URL,
-    ERRATA_STATUS_SHIPPED_LIVE,
+    ERRATA_STATUS_FALSE,
     ERRATA_STATUS_TRUE,
 )
 
@@ -192,21 +192,30 @@ class CnvVersionExplorer:
             channel=build_info["channel"],
         )
 
-    def get_builds_by_version(self, version: str, errata_status: str = ERRATA_STATUS_TRUE) -> dict:
+    def get_successful_builds_by_version(
+        self,
+        version: str,
+        errata_status: str = ERRATA_STATUS_TRUE,
+        max_entries: int | None = None,
+    ) -> list[dict]:
         """
-        Get successful builds by version.
+        Get all successful builds for a version.
 
         Args:
-            version: Version string (e.g., "4.20.0")
+            version: Version string (e.g., "4.20.3")
             errata_status: Filter by errata status (default: "true")
+            max_entries: Maximum number of builds to return (optional)
 
         Returns:
-            Dictionary with successful_builds list
+            List of build dictionaries
         """
+        query_string = f"version={version}&errata_status={errata_status}"
+        if max_entries is not None:
+            query_string += f"&max_entries={max_entries}"
         return self.query_with_retry(
             endpoint="GetSuccessfulBuildsByVersion",
-            query_string=f"version={version}&errata_status={errata_status}",
-        )["successful_builds"][0]
+            query_string=query_string,
+        )["successful_builds"]
 
     def get_upgrade_path(self, target_version: str, channel: str) -> dict[str, list[dict[str, str | list[str]]]]:
         """
@@ -227,44 +236,6 @@ class CnvVersionExplorer:
 
     # --- High-Level Methods ---
 
-    def get_latest_released_z_stream_info(self, minor_version: str, channel: str) -> dict[str, str]:
-        """
-        Get the latest released z-stream info for a minor version and channel.
-
-        Args:
-            minor_version: Minor version string (e.g., "v4.20")
-            channel: Release channel ("stable" or "candidate")
-
-        Returns:
-            Dictionary with version, bundle_version, iib, and channel info
-
-        Note:
-            For stable channel: requires SHIPPED_LIVE errata status and stable channel released to prod.
-            For candidate channel: only requires candidate channel released to prod.
-        """
-        builds = self.get_builds_with_errata(minor_version)
-
-        if channel == CHANNEL_STABLE:
-
-            def predicate(b):
-                return b["errata_status"] == ERRATA_STATUS_SHIPPED_LIVE and channel_released_to_prod(
-                    b["channels"], CHANNEL_STABLE
-                )
-
-        else:
-
-            def predicate(b):
-                return channel_released_to_prod(b["channels"], channel)
-
-        build = find_latest_build(builds, predicate)
-        assert build, f"No {channel} latest z stream found"
-        return extract_channel_info(
-            build_data=build,
-            version=build["csv_version"],
-            bundle_version_key=BUNDLE_VERSION_KEY_VERSION,
-            channel=channel,
-        )
-
     def get_latest_build_with_errata_info(self, minor_version: str) -> dict[str, str]:
         """
         Get the latest build with errata for a minor version, regardless of channel.
@@ -283,84 +254,6 @@ class CnvVersionExplorer:
         build = find_latest_build(builds, lambda b: bool(b.get("errata_status")))
         assert build, "No build with errata found"
         return extract_build_info_with_stable_preference(build, require_released=False)
-
-    def get_latest_stable_build_with_errata_info(self, minor_version: str) -> dict[str, str]:
-        """
-        Get the latest build that has a stable channel with errata.
-
-        Returns the build with the highest version number that has errata AND
-        has a stable channel (whether released to prod or not).
-        This is useful for upgrade jobs where you specifically need a stable channel.
-
-        Args:
-            minor_version: Minor version string (e.g., "v4.20")
-
-        Returns:
-            Dictionary with version, bundle_version, iib, and channel info
-
-        Raises:
-            AssertionError: If no build with stable channel and errata is found
-        """
-        builds = self.get_builds_with_errata(minor_version)
-        build = find_latest_build(
-            builds, lambda b: bool(b.get("errata_status")) and channel_exists(b["channels"], CHANNEL_STABLE)
-        )
-        assert build, f"No build with stable channel and errata found for {minor_version}"
-        return extract_channel_info(
-            build_data=build,
-            version=build["csv_version"],
-            bundle_version_key=BUNDLE_VERSION_KEY_VERSION,
-            channel=CHANNEL_STABLE,
-        )
-
-    def get_latest_candidate_with_stable_fallback_info(self, minor_version: str) -> dict[str, str]:
-        """
-        Get the latest candidate channel released z-stream info, with stable fallback.
-
-        For Y-stream upgrades: finds the latest candidate released to prod, then checks if
-        that same build also has a stable channel available. If so, returns stable info.
-        If no candidate is released to prod, falls back to latest build with errata (stable).
-
-        Args:
-            minor_version: Minor version string (e.g., "v4.20")
-
-        Returns:
-            Dictionary with version, bundle_version, iib, and channel info
-        """
-        builds = self.get_builds_with_errata(minor_version)
-
-        # Try to find latest candidate released to prod
-        build = find_latest_build(builds, lambda b: channel_released_to_prod(b["channels"], CHANNEL_CANDIDATE))
-
-        # If no candidate found, fallback to latest build with errata (typically stable on QE)
-        if not build:
-            build = find_latest_build(builds, lambda b: bool(b.get("errata_status")))
-            require_released = False  # For QE builds, don't require released_to_prod
-        else:
-            require_released = True  # For production candidate builds, check released_to_prod
-
-        assert build, "No candidate or stable build with errata found"
-        return extract_build_info_with_stable_preference(build, require_released=require_released)
-
-    def get_z0_release_info(self, minor_version: str) -> dict[str, str]:
-        """
-        Get the 4.Y.0 release info for a minor version (used for latest-z upgrades).
-
-        Args:
-            minor_version: Minor version string (e.g., "4.20" or "v4.20")
-
-        Returns:
-            Dictionary with version, bundle_version, iib, and channel info
-        """
-        clean_version = minor_version.lstrip("v")
-        version = f"{clean_version}.0"
-        build_info = self.get_builds_by_version(version=version, errata_status=ERRATA_STATUS_TRUE)
-        return extract_channel_info(
-            build_data=build_info,
-            version=version,
-            bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD,
-            channel=CHANNEL_STABLE,
-        )
 
     # --- Specific Version Methods ---
 
@@ -385,56 +278,91 @@ class CnvVersionExplorer:
             query_string=f"version={version_param}",
         )
 
-    def get_specific_version_info(
+    def get_version_builds_info(
         self,
         version: str,
-        required_channel: str | None = None,
-        prefer_stable: bool = True,
+        stable_required: bool,
+        require_released_to_prod: bool = False,
     ) -> dict[str, str]:
         """
         Get build info for a specific version (X.Y.Z format).
 
-        Uses get_builds_by_version with errata=true, then applies channel filtering.
+        Queries up to 20 builds with errata_status=false, then selects the
+        best build based on channel requirements.
 
         Args:
             version: Full version string (e.g., "4.20.3")
-            required_channel: If set, require this channel (raise error if not found)
-            prefer_stable: If True and required_channel is None, prefer stable over candidate
+            stable_required: Whether stable channel is mandatory
+            require_released_to_prod: Whether the stable channel must be released to prod
 
         Returns:
             Dictionary with version, bundle_version, iib, and channel
 
         Raises:
-            ValueError: If required_channel is specified but not available
+            ValueError: If channel requirements are not met
         """
-        build_info = self.get_builds_by_version(version=version, errata_status=ERRATA_STATUS_TRUE)
-
-        if required_channel:
-            if not channel_exists(build_info.get("channels", []), required_channel):
-                raise ValueError(
-                    f"Version {version} does not have {required_channel} channel required for this upgrade type"
-                )
-            return extract_channel_info(
-                build_data=build_info,
-                version=version,
-                bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD,
-                channel=required_channel,
-            )
-
-        # No required channel - apply preference logic
-        if prefer_stable and channel_exists(build_info.get("channels", []), CHANNEL_STABLE):
-            channel = CHANNEL_STABLE
-        elif channel_exists(build_info.get("channels", []), CHANNEL_CANDIDATE):
-            channel = CHANNEL_CANDIDATE
-        else:
-            channel = CHANNEL_STABLE  # Default to stable
-
-        return extract_channel_info(
-            build_data=build_info,
-            version=version,
-            bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD,
-            channel=channel,
+        builds = self.get_successful_builds_by_version(
+            version=version, errata_status=ERRATA_STATUS_FALSE, max_entries=20
         )
+        return select_build_by_channel(
+            builds=builds,
+            version=version,
+            stable_required=stable_required,
+            require_released_to_prod=require_released_to_prod,
+        )
+
+    def get_version_range_builds_info(
+        self,
+        start_version: str,
+        stop_version: str,
+        stable_required: bool,
+        require_released_to_prod: bool = False,
+    ) -> dict[str, str]:
+        """
+        Get build info by searching a range of versions from start down to stop.
+
+        Decrements the patch number from start_version to stop_version (inclusive).
+        For each version, queries up to 20 builds with errata_status=false.
+        The first version with builds is used, then channel selection is applied.
+
+        Args:
+            start_version: Highest version to try (e.g., "4.20.10")
+            stop_version: Lowest version to try, inclusive (e.g., "4.20.7")
+            stable_required: Whether stable channel is mandatory
+            require_released_to_prod: Whether the stable channel must be released to prod
+
+        Returns:
+            Dictionary with version, bundle_version, iib, and channel
+
+        Raises:
+            ValueError: If no builds found across the entire range, or channel requirements not met
+        """
+        start_parts = start_version.split(".")
+        stop_patch = int(stop_version.split(".")[2])
+        base = f"{start_parts[0]}.{start_parts[1]}"
+        start_patch = int(start_parts[2])
+
+        for patch in range(start_patch, stop_patch - 1, -1):
+            version = f"{base}.{patch}"
+            LOGGER.info(f"Trying version {version}...")
+            builds = self.get_successful_builds_by_version(
+                version=version, errata_status=ERRATA_STATUS_FALSE, max_entries=20
+            )
+            if not builds:
+                LOGGER.info(f"No builds found for version {version}, trying next...")
+                continue
+            LOGGER.info(f"Found {len(builds)} build(s) for version {version}")
+            try:
+                return select_build_by_channel(
+                    builds=builds,
+                    version=version,
+                    stable_required=stable_required,
+                    require_released_to_prod=require_released_to_prod,
+                )
+            except ValueError:
+                LOGGER.info(f"No matching channel for version {version}, trying next...")
+
+        raise ValueError(f"No builds with matching channel found in version range {start_version} to {stop_version}")
 
     def get_bundle_version_info(
         self,
@@ -572,6 +500,61 @@ def extract_build_info_with_stable_preference(build: dict, require_released: boo
     return extract_channel_info(
         build_data=build, version=build["csv_version"], bundle_version_key=BUNDLE_VERSION_KEY_VERSION, channel=channel
     )
+
+
+def select_build_by_channel(
+    builds: list[dict],
+    version: str,
+    stable_required: bool,
+    require_released_to_prod: bool = False,
+) -> dict[str, str]:
+    """
+    Select the best build from a list based on channel requirements.
+
+    Iterates builds looking for a stable channel first. The stable check can
+    optionally require the channel to be released to prod (for source versions).
+
+    If no stable channel found:
+    - stable_required=True: raises ValueError (Y-stream/EUS targets, all sources)
+    - stable_required=False: falls back to the first build with a candidate channel
+
+    Args:
+        builds: List of build dictionaries from GetSuccessfulBuildsByVersion
+        version: Version string (e.g., "4.20.3") for the result dict
+        stable_required: If True, raises ValueError when no stable channel is found
+        require_released_to_prod: If True, stable channel must also be released to prod
+
+    Returns:
+        Dictionary with version, bundle_version, iib, and channel
+
+    Raises:
+        ValueError: If channel requirements are not met
+    """
+    stable_check = channel_released_to_prod if require_released_to_prod else channel_exists
+
+    for build in builds:
+        if stable_check(build.get("channels", []), CHANNEL_STABLE):
+            return extract_channel_info(
+                build_data=build,
+                version=version,
+                bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD,
+                channel=CHANNEL_STABLE,
+            )
+
+    if stable_required:
+        detail = "released to prod " if require_released_to_prod else ""
+        raise ValueError(f"No stable channel {detail}found for version {version}")
+
+    for build in builds:
+        if channel_exists(build.get("channels", []), CHANNEL_CANDIDATE):
+            return extract_channel_info(
+                build_data=build,
+                version=version,
+                bundle_version_key=BUNDLE_VERSION_KEY_CNV_BUILD,
+                channel=CHANNEL_CANDIDATE,
+            )
+
+    raise ValueError(f"No stable or candidate channel found for version {version}")
 
 
 def get_build_info_dict(version: str, channel: str = CHANNEL_STABLE) -> dict[str, str]:
