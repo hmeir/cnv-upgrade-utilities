@@ -301,13 +301,14 @@ class CnvVersionExplorer:
         Raises:
             ValueError: If channel requirements are not met
         """
+        is_initial_release = version.endswith(".0")
         builds = self.get_successful_builds_by_version(
             version=version, errata_status=ERRATA_STATUS_FALSE, max_entries=20
         )
         return select_build_by_channel(
             builds=builds,
             version=version,
-            stable_required=stable_required,
+            stable_required=stable_required and not is_initial_release,
             require_released_to_prod=require_released_to_prod,
         )
 
@@ -352,11 +353,12 @@ class CnvVersionExplorer:
                 LOGGER.info(f"No builds found for version {version}, trying next...")
                 continue
             LOGGER.info(f"Found {len(builds)} build(s) for version {version}")
+            is_initial_release = patch == 0
             try:
                 return select_build_by_channel(
                     builds=builds,
                     version=version,
-                    stable_required=stable_required,
+                    stable_required=stable_required and not is_initial_release,
                     require_released_to_prod=require_released_to_prod,
                 )
             except ValueError:
