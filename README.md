@@ -1,11 +1,11 @@
 # CNV Upgrade Utilities
 
-This repository contains a collection of utilities designed to assist with CNV (Container Native Virtualization) upgrade testing, release management, and automation.
+CLI tools for CNV (Container Native Virtualization) upgrade testing and release management.
 
 ## Prerequisites
 
 - Python >= 3.12
-- Access to the Version Explorer API (for relevant tools).
+- Access to the Version Explorer API
 
 ## Installation
 
@@ -23,7 +23,6 @@ This makes the following commands available globally:
 
 - `release_checklist_upgrade_plan`
 - `upgrade_jobs_info`
-- `all_versions_upgrade_plan`
 
 ### Development installation
 
@@ -36,121 +35,117 @@ uv sync --extra dev
 ### Linting and Formatting
 
 ```bash
-# Run linter
 uv run ruff check src/ tests/
-
-# Run formatter
 uv run ruff format src/ tests/
 ```
 
 ## Configuration
 
-For tools interacting with the Version Explorer, you must set the `VERSION_EXPLORER_URL` environment variable.
+Set the `VERSION_EXPLORER_URL` environment variable before using any tool:
 
 ```bash
 export VERSION_EXPLORER_URL="http://<your-version-explorer-host>"
 ```
 
-# Tools & Features
+## Key Terms
 
-## Upgrade Release Checklist Generator
+| Term | Description | Example |
+|------|-------------|---------|
+| **Y Stream** | Upgrade from the previous minor version | 4.19 -> 4.20 |
+| **Z Stream** | Upgrade within the same minor version | 4.20.1 -> 4.20.2 |
+| **Latest Z** | Upgrade from the initial release (4.Y.0) to the latest z | 4.20.0 -> 4.20.5 |
+| **EUS** | Extended Update Support, skipping one minor version (both must be even) | 4.18 -> 4.20 |
+| **UTS-FULL** | Full post-upgrade test suite |  |
+| **UTS-Marker** | Reduced post-upgrade test suite (marker-based) |  |
+
+## Tools
+
+### Release Checklist Generator
 
 **Command:** `release_checklist_upgrade_plan`
 
-- The target channel must be "stable"!
+Generates upgrade lanes for a CNV release checklist. Given a target version, it determines all applicable upgrade paths with their source versions and post-upgrade test suites.
 
-This tool automates the generation of upgrade paths (lanes) for CNV release checklists. It determines the appropriate source versions and post-upgrade test suites based on the target release version and defined upgrade rules.
+#### Parameters
 
-The checklist tool categorizes the target version (`4.Y.z`) into three main buckets based on the Z-stream component.
+| Parameter | Format | Required | Description |
+|-----------|--------|----------|-------------|
+| `-v, --target-version` | `4.Y.Z` | Yes | Target version (e.g., `4.20.2`) |
+| `--skip-target-check` | flag | No | Accept target builds already released to prod |
 
-### 1. Major Release (Z = 0)
+#### Upgrade Rules
 
-*Target Pattern: `4.Y.0*`
+The tool determines which upgrade lanes apply based on the target version's Z component:
 
+**Major Release (Z = 0)**
 
-| Upgrade Type | Source Version     | Post-Upgrade Suite | Condition           |
-| ------------ | ------------------ | ------------------ | ------------------- |
-| **Y Stream** | Latest `4.(Y-1).z` | `UTS-FULL`         | Always              |
-| **EUS**      | Latest `4.(Y-2).z` | `UTS-Marker`       | Only if `Y` is even |
+| Upgrade Type | Source | Post-Upgrade Suite | Condition |
+|---|---|---|---|
+| Y Stream | Latest `4.(Y-1).z` | UTS-FULL | Always |
+| EUS | Latest `4.(Y-2).z` | UTS-Marker | Only if Y is even |
 
+**First Maintenance (Z = 1)**
 
-### 2. First Maintenance Release (Z = 1)
+| Upgrade Type | Source | Post-Upgrade Suite |
+|---|---|---|
+| Y Stream | Latest `4.(Y-1).z` | UTS-FULL |
+| Z Stream | Latest `4.Y.z` (typically `4.Y.0`) | UTS-Marker |
 
-*Target Pattern: `4.Y.1*`
+**Subsequent Maintenance (Z >= 2)**
 
+| Upgrade Type | Source | Post-Upgrade Suite |
+|---|---|---|
+| Y Stream | Latest `4.(Y-1).z` | UTS-Marker |
+| Z Stream | Latest `4.Y.z` | NONE |
+| Latest Z | `4.Y.0` | NONE |
 
-| Upgrade Type | Source Version                     | Post-Upgrade Suite |
-| ------------ | ---------------------------------- | ------------------ |
-| **Y Stream** | Latest `4.(Y-1).z`                 | `UTS-FULL`         |
-| **Z Stream** | Latest `4.Y.z` (typically `4.Y.0`) | `UTS-Marker`       |
+#### Target Resolution
 
+The target must be in stable stage and **not yet released to prod**. If the target build hasn't reached stable stage yet (or is already released), the tool fails with a clear error message. Use `--skip-target-check` to bypass this validation and generate the upgrade paths regardless of the target's channel status.
 
-### 3. Maintenance Releases (Z >= 2)
+#### Source Resolution
 
-*Target Pattern: `4.Y.2+*`
+Each source is resolved as the latest stable build released to prod for the corresponding minor version.
 
-
-| Upgrade Type | Source Version     | Post-Upgrade Suite |
-| ------------ | ------------------ | ------------------ |
-| **Y Stream** | Latest `4.(Y-1).z` | `UTS-Marker`       |
-| **Z Stream** | Latest `4.Y.z`     | `NONE`             |
-| **Latest Z** | `4.Y.0`            | `NONE`             |
-
-
-### Key Terms
-
-- **Y Stream**: Upgrading from the previous minor version (e.g., 4.19 -> 4.20).
-- **Z Stream**: Upgrading within the same minor version (e.g., 4.20.0 -> 4.20.1).
-- **Latest Z**: Upgradeing within the same minor version, from 4.Y.0 (e.g 4.20.0 -> 4.20.2)
-- **EUS**: Extended Update Support, allowing skipping one minor version (e.g., 4.18 -> 4.20).
-- **UTS-FULL**: Full test suite.
-- **UTS-Marker**: Post Upgrade Marker (a reduced test suite).
-
-## Using the Release Checklist Tool
-
-Run the command by providing the target version using the `-v` (or `--target-version`) flag.
-
-**Basic Example:**
+#### Usage
 
 ```bash
+# Generate checklist for a target version
 release_checklist_upgrade_plan -v 4.20.2
+
+# Skip target channel validation (e.g., target not yet in stable stage)
+release_checklist_upgrade_plan -v 4.16.33 --skip-target-check
 ```
 
-### Specifying a Channel
-
-You can optionally specify the release channel (default is `stable`):
-
-```bash
-release_checklist_upgrade_plan -v 4.20.2 -c stable
-# or
-release_checklist_upgrade_plan -v 4.20.2 -c candidate
-```
-
-**Note:** Only `stable` channel is fully supported at this time.
-
-### Sample Output
+#### Example Output
 
 ```json
 {
   "target_version": "4.20.2",
+  "target_build_info": {
+    "version": "4.20.2",
+    "bundle_version": "4.20.2.rhel9-5",
+    "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1091512",
+    "channel": "stable"
+  },
   "upgrade_lanes": {
     "Y stream": {
-      "source_version": "v4.19.15",
-      "bundle_version": "v4.19.15.rhel9-18",
+      "source_version": "4.19.15",
+      "bundle_version": "4.19.15.rhel9-18",
       "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1079024",
       "channel": "stable",
       "post_upgrade_suite": "UTS-Marker"
     },
     "Z stream": {
-      "source_version": "v4.20.1",
-      "bundle_version": "v4.20.1.rhel9-13",
+      "source_version": "4.20.1",
+      "bundle_version": "4.20.1.rhel9-13",
       "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1073045",
       "channel": "stable",
       "post_upgrade_suite": "NONE"
     },
     "latest z": {
       "source_version": "4.20.0",
-      "bundle_version": "v4.20.0.rhel9-234",
+      "bundle_version": "4.20.0.rhel9-234",
       "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1063267",
       "channel": "stable",
       "post_upgrade_suite": "NONE"
@@ -159,183 +154,106 @@ release_checklist_upgrade_plan -v 4.20.2 -c candidate
 }
 ```
 
-## Upgrade Jobs Info Tool
+---
+
+### Upgrade Jobs Info
 
 **Command:** `upgrade_jobs_info`
 
-This tool provides source and target build information for scheduled upgrade job execution. It supports both automatic version resolution (fetching latest builds) and specific version inputs.
+Resolves source and target build information for upgrade job execution. Automatically detects the upgrade type and fetches the appropriate builds.
 
-### Parameters
+#### Parameters
 
-| Parameter              | Format                                       | Required | Description                                                                 |
-| ---------------------- | -------------------------------------------- | -------- | --------------------------------------------------------------------------- |
-| `-s, --source-version` | `4.Y`, `4.Y.Z`, or `4.Y.Z.rhelR-BN`          | Yes      | Source version. Use `4.Y` for auto-detection, or specific version/bundle.  |
-| `-t, --target-version` | `4.Y`, `4.Y.Z`, or `4.Y.Z.rhelR-BN`          | Yes      | Target version. Use `4.Y` for auto-detection, or specific version/bundle.  |
+| Parameter | Format | Required | Description |
+|-----------|--------|----------|-------------|
+| `-s, --source-version` | `4.Y`, `4.Y.Z`, or `4.Y.Z.rhelR-BN` | Yes | Source version |
+| `-t, --target-version` | `4.Y`, `4.Y.Z`, or `4.Y.Z.rhelR-BN` | Yes | Target version |
 
-### Specific Version Handling
+#### Version Formats
 
-The tool supports three levels of specificity for versions:
+Both source and target accept three levels of specificity:
 
-1. **Minor Version (`4.Y`)**: The tool automatically fetches the latest appropriate build based on upgrade rules (e.g., latest stable for source, latest candidate for target).
-2. **Full Version (`4.Y.Z`)**: The tool uses the specific version provided.
-3. **Bundle Version (`4.Y.Z.rhelR-BN`)**: The tool uses the specific bundle build provided.
+| Format | Pattern | Description |
+|--------|---------|-------------|
+| **Minor** | `4.Y` | Auto-resolves to the best available build for the minor version |
+| **Full** | `4.Y.Z` | Resolves to a specific X.Y.Z version |
+| **Bundle** | `4.Y.Z.rhelR-BN` | Exact build lookup (e.g., `4.20.3.rhel9-31`) |
 
-### Parameter Constraints
+#### Upgrade Type Detection
 
-- For **latest-z** upgrades, source must end with `.0` and have the same Y as target
-- For **EUS** upgrades, both source and target minor versions must be even numbers
+The upgrade type is automatically determined from the source and target versions:
 
-### Upgrade Validation
+| Source | Target | Upgrade Type |
+|--------|--------|--------------|
+| `4.Y` | `4.Y` | Z-stream |
+| `4.Y` | `4.(Y+1)` | Y-stream |
+| `4.Y.0` | `4.Y` | Latest-Z |
+| `4.Y` | `4.(Y+2)` | EUS (both must be even) |
 
-The tool validates upgrade paths and rejects invalid upgrade scenarios with clear error messages:
+#### Validation
 
+The tool rejects invalid upgrade scenarios:
 
-| Invalid Scenario          | Example           | Error                                 |
-| ------------------------- | ----------------- | ------------------------------------- |
-| **Same version**          | `4.20.5 → 4.20.5` | Cannot upgrade to the same version    |
-| **Z-stream downgrade**    | `4.20.5 → 4.20.4` | Cannot downgrade within z-stream      |
-| **Y-stream downgrade**    | `4.21 → 4.20`     | Cannot downgrade                      |
-| **Version gap > 2**       | `4.18 → 4.21`     | Unsupported upgrade (gap of 3)        |
-| **EUS with odd versions** | `4.19 → 4.21`     | EUS requires both versions to be even |
-| **Latest-z cross-minor**  | `4.19.0 → 4.20`   | Latest-z requires same minor version  |
+| Scenario | Example | Error |
+|----------|---------|-------|
+| Same version | `4.20.5 -> 4.20.5` | Cannot upgrade to the same version |
+| Z-stream downgrade | `4.20.5 -> 4.20.4` | Cannot downgrade within z-stream |
+| Y-stream downgrade | `4.21 -> 4.20` | Cannot downgrade |
+| Version gap > 2 | `4.18 -> 4.21` | Unsupported upgrade |
+| EUS with odd versions | `4.19 -> 4.21` | EUS requires both versions to be even |
+| Latest-Z cross-minor | `4.19.0 -> 4.20` | Latest-Z requires same minor version |
 
+**Note:** `4.20 -> 4.20` (minor format) is a valid Z-stream lookup. Only exact same full versions (e.g., `4.20.5 -> 4.20.5`) are rejected.
 
-**Note:** `4.20 → 4.20` (minor format) is a valid Z-stream lookup. Only exact same full versions (e.g., `4.20.5 → 4.20.5`) are rejected.
-
-### Upgrade Type Detection Strategy
-
-The tool automatically determines the upgrade type based on the source and target versions:
-
-
-| Source  | Target    | Upgrade Type | Description                      |
-| ------- | --------- | ------------ | -------------------------------- |
-| `4.Y`   | `4.Y`     | Z-stream     | Same minor version               |
-| `4.Y`   | `4.(Y+1)` | Y-stream     | One minor version difference     |
-| `4.Y.0` | `4.Y`     | Latest-Z     | Source is .0 release, same minor |
-| `4.Y`   | `4.(Y+2)` | EUS          | Two minor versions, both even    |
-
-
-### Fetch Strategy by Upgrade Type
-
-Each upgrade type uses a specific strategy to fetch source and target build information:
-
-
-| Upgrade Type | Source Fetch                       | Target Fetch                                                         |
-| ------------ | ---------------------------------- | -------------------------------------------------------------------- |
-| **Z-stream** | Latest stable released to prod     | Latest candidate (or latest stable in QE)                            |
-| **Y-stream** | Latest Y-1 stable released to prod | Latest build with **stable channel** and errata (includes QE builds) |
-| **Latest-Z** | 4.Y.0 release info                 | Latest candidate (or latest stable in QE)                            |
-| **EUS**      | Latest Y stable released to prod   | Latest build with **stable channel** and errata (includes QE builds) |
-
-
-**Note:** Y-stream and EUS upgrades require the target to have a stable channel. Z-stream and Latest-Z upgrades can use either candidate or stable channels.
-
-### Usage Examples
+#### Usage
 
 ```bash
-# Auto-detect latest versions (4.20 -> 4.20)
+# Z-stream (auto-detect latest versions)
 upgrade_jobs_info -s 4.20 -t 4.20
 
-# Use specific versions
+# Y-stream
+upgrade_jobs_info -s 4.19 -t 4.20
+
+# EUS
+upgrade_jobs_info -s 4.18 -t 4.20
+
+# Latest-Z
+upgrade_jobs_info -s 4.20.0 -t 4.20
+
+# Specific versions
 upgrade_jobs_info -s 4.19.15 -t 4.20.1
 
-# Use specific bundle versions
+# Specific bundle versions
 upgrade_jobs_info -s 4.20.3.rhel9-31 -t 4.20.5.rhel9-3
 
-# Mix and match (specific source, auto-detect target)
+# Mix formats
 upgrade_jobs_info -s 4.20.0 -t 4.20
 ```
 
-### Sample Output
-
-For a Z-stream upgrade command:
+#### Example Output
 
 ```bash
 upgrade_jobs_info -s 4.20 -t 4.20
 ```
-
-Output:
 
 ```json
 {
   "upgrade_type": "z_stream",
   "source": {
-    "version": "v4.20.3",
-    "bundle_version": "v4.20.3.rhel9-31",
+    "version": "4.20.3",
+    "bundle_version": "4.20.3.rhel9-31",
     "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1084676",
     "channel": "stable"
   },
   "target": {
-    "version": "v4.20.5",
-    "bundle_version": "v4.20.5.rhel9-3",
+    "version": "4.20.5",
+    "bundle_version": "4.20.5.rhel9-3",
     "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1091512",
-    "channel": "candidate"
+    "channel": "stable"
   }
 }
 ```
 
-## All Versions Upgrade Plan Tool
+## Contributing
 
-**Command:** `all_versions_upgrade_plan`
-
-This tool batch generates upgrade plans for all supported CNV minor versions. It outputs individual JSON files per version and an optional combined summary file.
-
-### Parameters
-
-
-| Parameter                | Default           | Description                     |
-| ------------------------ | ----------------- | ------------------------------- |
-| `-o, --output-dir`       | `./upgrade_plans` | Output directory for JSON files |
-| `--summary/--no-summary` | `--summary`       | Generate combined summary file  |
-
-
-### Supported Versions
-
-The tool generates upgrade plans for the following CNV versions:
-
-- 4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20, 4.21
-
-### Strategy
-
-1. For each supported minor version, query the latest build with errata
-2. Use that version as the target and generate upgrade paths (same logic as `release_checklist_upgrade_plan`)
-3. Write individual JSON files: `upgrade_plan_4_X.json`
-4. Optionally write combined summary: `all_versions_summary.json`
-
-### Usage Examples
-
-```bash
-# Generate plans to default directory
-all_versions_upgrade_plan
-
-# Specify custom output directory
-all_versions_upgrade_plan -o /tmp/my_plans
-
-# Skip summary file
-all_versions_upgrade_plan --no-summary
-```
-
-### Sample Output
-
-The tool creates the following files in the output directory:
-
-```
-upgrade_plans/
-├── upgrade_plan_4_12.json
-├── upgrade_plan_4_14.json
-├── upgrade_plan_4_16.json
-├── upgrade_plan_4_17.json
-├── upgrade_plan_4_18.json
-├── upgrade_plan_4_19.json
-├── upgrade_plan_4_20.json
-├── upgrade_plan_4_21.json
-└── all_versions_summary.json  (optional)
-```
-
-Each individual file contains the same structure as the output from `release_checklist_upgrade_plan` for that specific version.
-
-# Contributing
-
-Contributions are welcome! Please ensure:
-
-1. Code follows the project's style guidelines (enforced via `ruff` and `flake8`)
+Contributions are welcome! Please ensure code follows the project's style guidelines (enforced via `ruff`).

@@ -21,7 +21,6 @@ dev = [
 [project.scripts]
 release_checklist_upgrade_plan = "cnv_upgrade_utilities.release_checklist_upgrade_plan:main"
 upgrade_jobs_info = "cnv_upgrade_utilities.upgrade_jobs_info:main"
-all_versions_upgrade_plan = "cnv_upgrade_utilities.all_versions_upgrade_plan:main"
 
 [build-system]
 requires = ["hatchling"]
