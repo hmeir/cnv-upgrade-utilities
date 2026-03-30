@@ -189,7 +189,8 @@ def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type
     Y stream / EUS:
       1. Latest z with current_channel=stable AND stable channel in_stage=true
       2. Fallback: latest z with stable channel released_to_prod=true (previous stable)
-      3. Fail (if neither latest z nor z-1 has a suitable stable build)
+      3. Fallback (X.Y.0 only): candidate prod, then candidate stage
+      4. Fail
     """
     minor_version = format_minor_version(version=version)
     builds = explorer.get_released_builds(minor_version=minor_version, stage=True)
@@ -229,16 +230,20 @@ def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type
     if stable_only:
         if stable_prod:
             return extract_released_build_info(build=stable_prod, channel=CHANNEL_STABLE)
-        raise ValueError(
-            f"No stable build (stage or prod) found for {minor_version}, "
-            f"required for {upgrade_type.display_name} upgrade"
-        )
+        # Allow candidate fallback for X.Y.0 (new minor with no stable builds yet)
+        latest_csv = builds[0].get("csv_version", "").lstrip("v")
+        if not _is_initial_release(version=latest_csv):
+            raise ValueError(
+                f"No stable build (stage or prod) found for {minor_version}, "
+                f"required for {upgrade_type.display_name} upgrade"
+            )
+        # Fall through to candidate steps below
 
-    # Step 2: candidate released to prod (Z stream / Latest Z only)
+    # Step 2: candidate released to prod
     if candidate_prod:
         return extract_released_build_info(build=candidate_prod, channel=CHANNEL_CANDIDATE)
 
-    # Step 3: candidate in stage (Z stream / Latest Z only)
+    # Step 3: candidate in stage
     if candidate_stage:
         return extract_released_build_info(build=candidate_stage, channel=CHANNEL_CANDIDATE)
 
