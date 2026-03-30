@@ -10,7 +10,6 @@ import click
 # ============================================================================
 FULL_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")  # 4.Y.z
 MINOR_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)$")  # 4.Y
-SOURCE_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)(\.0)?$")  # 4.Y or 4.Y.0
 BUNDLE_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)\.(0|[1-9]\d*)\.rhel\d+-\d+$")  # 4.Y.Z.rhelR-BN
 
 # Unified pattern accepting all three formats: 4.Y, 4.Y.Z, or 4.Y.Z.rhelR-BN
@@ -25,32 +24,12 @@ FLEXIBLE_VERSION_PATTERN = re.compile(
 # ============================================================================
 SKIP_Y_STREAM_UPGRADE_MINORS = frozenset({12, 14})
 
-# Version search range for MINOR format: minor_version -> (start_version, stop_version)
-# When a version is specified as minor (e.g., "4.20"), we search from start down to stop
-# (inclusive) looking for the first version with successful builds.
-MINOR_VERSION_SEARCH_RANGE: dict[str, tuple[str, str]] = {
-    "4.12": ("4.12.24", "4.12.23"),
-    "4.14": ("4.14.18", "4.14.17"),
-    "4.16": ("4.16.34", "4.16.28"),
-    "4.17": ("4.17.45", "4.17.43"),
-    "4.18": ("4.18.32", "4.18.23"),
-    "4.19": ("4.19.20", "4.19.18"),
-    "4.20": ("4.20.10", "4.20.7"),
-    "4.21": ("4.21.3", "4.21.1"),
-    "4.22": ("4.22.1", "4.22.0"),
-}
-
 # ============================================================================
 # Post-Upgrade Suite Constants
 # ============================================================================
 POST_UPGRADE_SUITE_FULL = "UTS-FULL"
 POST_UPGRADE_SUITE_MARKER = "UTS-Marker"
 POST_UPGRADE_SUITE_NONE = "NONE"
-
-# Z-stream categories for post-upgrade suite mapping
-Z_CATEGORY_ZERO = 0  # Major release (4.Y.0)
-Z_CATEGORY_ONE = 1  # First maintenance (4.Y.1)
-Z_CATEGORY_TWO_PLUS = 2  # Subsequent maintenance (4.Y.2+)
 
 
 # ============================================================================
@@ -145,52 +124,30 @@ def detect_version_format(version: str) -> VersionFormat:
 # Post-Upgrade Suite Mapping
 # ============================================================================
 
-# Static mapping: upgrade_type -> {z_category -> post_upgrade_suite}
-# This mapping explicitly defines post-upgrade suite rules based on upgrade type
-# and z-stream category, matching the rules documented in README.md
+# Post-upgrade suite mapping: upgrade_type -> {z_category -> suite}
+# z categories: 0 = major (4.Y.0), 1 = first maintenance (4.Y.1), 2 = subsequent (4.Y.2+)
 POST_UPGRADE_SUITE_MAP = {
     UpgradeType.Y_STREAM: {
-        Z_CATEGORY_ZERO: POST_UPGRADE_SUITE_FULL,  # 4.Y.0 -> UTS-FULL
-        Z_CATEGORY_ONE: POST_UPGRADE_SUITE_FULL,  # 4.Y.1 -> UTS-FULL
-        Z_CATEGORY_TWO_PLUS: POST_UPGRADE_SUITE_MARKER,  # 4.Y.2+ -> UTS-Marker
+        0: POST_UPGRADE_SUITE_FULL,  # 4.Y.0 -> UTS-FULL
+        1: POST_UPGRADE_SUITE_FULL,  # 4.Y.1 -> UTS-FULL
+        2: POST_UPGRADE_SUITE_MARKER,  # 4.Y.2+ -> UTS-Marker
     },
     UpgradeType.Z_STREAM: {
-        Z_CATEGORY_ONE: POST_UPGRADE_SUITE_MARKER,  # 4.Y.1 -> UTS-Marker
-        Z_CATEGORY_TWO_PLUS: POST_UPGRADE_SUITE_NONE,  # 4.Y.2+ -> NONE
+        1: POST_UPGRADE_SUITE_MARKER,  # 4.Y.1 -> UTS-Marker
+        2: POST_UPGRADE_SUITE_NONE,  # 4.Y.2+ -> NONE
     },
     UpgradeType.EUS: {
-        Z_CATEGORY_ZERO: POST_UPGRADE_SUITE_MARKER,  # 4.Y.0 -> UTS-Marker
+        0: POST_UPGRADE_SUITE_MARKER,  # 4.Y.0 -> UTS-Marker
     },
     UpgradeType.LATEST_Z: {
-        Z_CATEGORY_TWO_PLUS: POST_UPGRADE_SUITE_NONE,  # 4.Y.2+ -> NONE
+        2: POST_UPGRADE_SUITE_NONE,  # 4.Y.2+ -> NONE
     },
 }
-
-
-def normalize_z_category(z: int) -> int:
-    """
-    Normalize z-stream value to category (0, 1, or 2+).
-
-    Args:
-        z: Z-stream value
-
-    Returns:
-        Normalized category constant
-    """
-    if z == 0:
-        return Z_CATEGORY_ZERO
-    elif z == 1:
-        return Z_CATEGORY_ONE
-    else:
-        return Z_CATEGORY_TWO_PLUS
 
 
 def get_post_upgrade_suite(upgrade_type: UpgradeType, z: int) -> str:
     """
     Get post-upgrade suite for an upgrade type and z-stream value.
-
-    Uses the static POST_UPGRADE_SUITE_MAP to determine the appropriate
-    post-upgrade suite based on upgrade type and z-stream category.
 
     Args:
         upgrade_type: The upgrade type
@@ -199,67 +156,23 @@ def get_post_upgrade_suite(upgrade_type: UpgradeType, z: int) -> str:
     Returns:
         Post-upgrade suite identifier (e.g., "UTS-FULL", "UTS-Marker", "NONE")
     """
-    z_category = normalize_z_category(z)
+    z_category = min(z, 2)
     return POST_UPGRADE_SUITE_MAP.get(upgrade_type, {}).get(z_category, POST_UPGRADE_SUITE_NONE)
 
 
-# Click parameter types for version validation
-class FullVersionParamType(click.ParamType):
-    """Click parameter type for full version validation (4.Y.z format)."""
+# Click parameter type for version validation
+class VersionParamType(click.ParamType):
+    """Generic Click parameter type for version validation against a regex pattern."""
 
-    name = "version"
-
-    def convert(self, value, param, ctx):
-        if not FULL_VERSION_PATTERN.match(value):
-            self.fail(
-                f"Invalid version format: '{value}'. Expected format: 4.Y.z (e.g., 4.20.2)",
-                param,
-                ctx,
-            )
-        return value
-
-
-class MinorVersionParamType(click.ParamType):
-    """Click parameter type for minor version validation (4.Y format)."""
-
-    name = "minor_version"
+    def __init__(self, pattern: re.Pattern, name: str, example: str):
+        self.pattern = pattern
+        self.name = name
+        self.example = example
 
     def convert(self, value, param, ctx):
-        if not MINOR_VERSION_PATTERN.match(value):
+        if not self.pattern.match(value):
             self.fail(
-                f"Invalid version format: '{value}'. Expected format: 4.Y (e.g., 4.20)",
-                param,
-                ctx,
-            )
-        return value
-
-
-class SourceVersionParamType(click.ParamType):
-    """Click parameter type for source version validation (4.Y or 4.Y.0 format)."""
-
-    name = "source_version"
-
-    def convert(self, value, param, ctx):
-        if not SOURCE_VERSION_PATTERN.match(value):
-            self.fail(
-                f"Invalid version format: '{value}'. Expected format: 4.Y (e.g., 4.19) or 4.Y.0 for latest-z",
-                param,
-                ctx,
-            )
-        return value
-
-
-class FlexibleVersionParamType(click.ParamType):
-    """Click parameter type for flexible version validation (4.Y, 4.Y.Z, or 4.Y.Z.rhelR-BN)."""
-
-    name = "flexible_version"
-
-    def convert(self, value, param, ctx):
-        if not FLEXIBLE_VERSION_PATTERN.match(value):
-            self.fail(
-                f"Invalid version format: '{value}'. Expected format: "
-                f"4.Y (e.g., 4.20), 4.Y.Z (e.g., 4.20.3), or "
-                f"4.Y.Z.rhelR-BN (e.g., 4.20.3.rhel9-18)",
+                f"Invalid version format: '{value}'. Expected format: {self.example}",
                 param,
                 ctx,
             )
@@ -267,10 +180,12 @@ class FlexibleVersionParamType(click.ParamType):
 
 
 # Pre-instantiated param types for convenience
-FULL_VERSION_TYPE = FullVersionParamType()
-MINOR_VERSION_TYPE = MinorVersionParamType()
-SOURCE_VERSION_TYPE = SourceVersionParamType()
-FLEXIBLE_VERSION_TYPE = FlexibleVersionParamType()
+FULL_VERSION_TYPE = VersionParamType(pattern=FULL_VERSION_PATTERN, name="version", example="4.Y.z (e.g., 4.20.2)")
+FLEXIBLE_VERSION_TYPE = VersionParamType(
+    pattern=FLEXIBLE_VERSION_PATTERN,
+    name="flexible_version",
+    example="4.Y (e.g., 4.20), 4.Y.Z (e.g., 4.20.3), or 4.Y.Z.rhelR-BN (e.g., 4.20.3.rhel9-18)",
+)
 
 
 # ============================================================================
@@ -347,27 +262,6 @@ def format_minor_version(version: str, prefix: str = "v") -> str:
     """
     parts = version.split(".")
     return f"{prefix}{parts[0]}.{parts[1]}"
-
-
-def extract_base_version(version: str) -> str:
-    """
-    Extract the base version (X.Y.Z) from any version format.
-
-    For bundle versions (4.20.3.rhel9-18), strips the rhel suffix.
-    For full versions (4.20.3), returns as-is.
-    For minor versions (4.20), returns as-is.
-
-    Args:
-        version: Version string in any supported format
-
-    Returns:
-        Base version string (e.g., "4.20.3" or "4.20")
-    """
-    version_format = detect_version_format(version)
-    if version_format == VersionFormat.BUNDLE:
-        # Strip the .rhelR-BN suffix
-        return version.rsplit(".rhel", 1)[0]
-    return version
 
 
 def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeType:

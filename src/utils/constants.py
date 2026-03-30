@@ -10,21 +10,6 @@ including channel names and API constants.
 # ============================================================================
 CHANNEL_STABLE = "stable"
 CHANNEL_CANDIDATE = "candidate"
-VALID_CHANNELS = (CHANNEL_STABLE, CHANNEL_CANDIDATE)
-
-# ============================================================================
-# Build Data Keys
-# ============================================================================
-BUNDLE_VERSION_KEY_CNV_BUILD = "cnv_build"
-BUNDLE_VERSION_KEY_VERSION = "version"
-
-# ============================================================================
-# Errata Status Constants
-# ============================================================================
-ERRATA_STATUS_SHIPPED_LIVE = "SHIPPED_LIVE"
-ERRATA_STATUS_TRUE = "true"
-ERRATA_STATUS_FALSE = "false"
-
 
 # ============================================================================
 # Environment Variable Names
