@@ -76,7 +76,7 @@ Uses `/GetReleasedBuilds` API.
 **Target version (`stage=true`):**
 
 1. Find latest z with `current_channel=stable` and stable channel `in_stage=true` but NOT `released_to_prod=true`.
-2. (Y stream / EUS only) Fall back to latest z with stable channel `released_to_prod=true`. If no stable build found at all, fail.
+2. (Y stream / EUS only) Fall back to latest z with stable channel `released_to_prod=true`. If no stable build found and latest z is not `X.Y.0`, fail.
 3. (Z stream / Latest Z only) Find latest z with candidate channel `released_to_prod=true`.
 4. (Z stream / Latest Z only) Find latest z with candidate channel `in_stage=true` but NOT `released_to_prod=true`.
 5. Fail with error.
