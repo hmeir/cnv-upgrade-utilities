@@ -374,9 +374,12 @@ def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, tar
     help="Target version: 4.Y, 4.Y.Z, or 4.Y.Z.rhelR-BN (e.g., 4.20, 4.20.5, 4.20.5.rhel9-3)",
 )
 def main(source_version: str, target_version: str):
-    with CnvVersionExplorer() as explorer:
-        result = get_upgrade_jobs_info(explorer=explorer, source_version=source_version, target_version=target_version)
-        click.echo(json.dumps(result, indent=2))
+    try:
+        with CnvVersionExplorer() as explorer:
+            result = get_upgrade_jobs_info(explorer=explorer, source_version=source_version, target_version=target_version)
+            click.echo(json.dumps(result, indent=2))
+    except ValueError as exc:
+        raise SystemExit(f"Error: {exc}")
 
 
 if __name__ == "__main__":

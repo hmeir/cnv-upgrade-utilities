@@ -224,13 +224,18 @@ class CnvVersionExplorer:
         Returns:
             Dictionary with build info including cnv_version, current_channel,
             and channels array
+
+        Raises:
+            ValueError: If the build is not found in Version Explorer
         """
-        # Prepend 'v' if not present (API expects v4.20.3.rhel9-31)
         version_param = bundle_version if bundle_version.startswith("v") else f"v{bundle_version}"
-        return self.query_with_retry(
+        result = self.query_with_retry(
             endpoint="GetBuildInfo",
             query_string=f"version={version_param}",
         )
+        if "error" in result:
+            raise ValueError(f"Build not found: {bundle_version}. Check if the build exists in CNV Version Explorer.")
+        return result
 
 
 # --- Helper functions (stateless, no API dependency) ---
