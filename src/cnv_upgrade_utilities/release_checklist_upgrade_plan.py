@@ -187,12 +187,15 @@ def get_upgrade_paths_info(
     help="Skip target channel validation. Use when the target build hasn't reached stable stage yet.",
 )
 def main(target_version: str, skip_target_check: bool):
-    with CnvVersionExplorer() as explorer:
-        version_info = get_upgrade_paths_info(
-            explorer=explorer, target_version=Version(target_version), skip_target_check=skip_target_check
-        )
+    try:
+        with CnvVersionExplorer() as explorer:
+            version_info = get_upgrade_paths_info(
+                explorer=explorer, target_version=Version(target_version), skip_target_check=skip_target_check
+            )
 
-        click.echo(json.dumps(version_info, indent=2, default=str))
+            click.echo(json.dumps(version_info, indent=2, default=str))
+    except ValueError as exc:
+        raise SystemExit(f"Error: {exc}")
 
 
 if __name__ == "__main__":
