@@ -8,7 +8,7 @@ import requests
 from requests.exceptions import ConnectionError, HTTPError, Timeout, TooManyRedirects
 from timeout_sampler import TimeoutSampler
 
-from utils.constants import CHANNEL_STABLE, ENV_VERSION_EXPLORER_URL
+from utils.constants import CHANNEL_STABLE, DEFAULT_VERSION_EXPLORER_URL, ENV_VERSION_EXPLORER_URL
 
 LOGGER = logging.getLogger(__name__)
 
@@ -58,9 +58,7 @@ class CnvVersionExplorer:
         Raises:
             ValueError: If URL is not provided and VERSION_EXPLORER_URL is not set
         """
-        self._url = url or os.environ.get(ENV_VERSION_EXPLORER_URL)
-        if not self._url:
-            raise ValueError("URL must be provided or VERSION_EXPLORER_URL environment variable must be set")
+        self._url = url or os.environ.get(ENV_VERSION_EXPLORER_URL) or DEFAULT_VERSION_EXPLORER_URL
         self.request_timeout = request_timeout
         self.retry_timeout = retry_timeout
         self._session: requests.Session | None = None
