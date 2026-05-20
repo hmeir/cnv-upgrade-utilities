@@ -8,7 +8,7 @@ import requests
 from requests.exceptions import ConnectionError, HTTPError, Timeout, TooManyRedirects
 from timeout_sampler import TimeoutSampler
 
-from utils.constants import CHANNEL_STABLE, ENV_VERSION_EXPLORER_URL
+from utils.constants import CHANNEL_STABLE, DEFAULT_VERSION_EXPLORER_URL, ENV_VERSION_EXPLORER_URL
 
 LOGGER = logging.getLogger(__name__)
 
@@ -58,9 +58,7 @@ class CnvVersionExplorer:
         Raises:
             ValueError: If URL is not provided and VERSION_EXPLORER_URL is not set
         """
-        self._url = url or os.environ.get(ENV_VERSION_EXPLORER_URL)
-        if not self._url:
-            raise ValueError("URL must be provided or VERSION_EXPLORER_URL environment variable must be set")
+        self._url = url or os.environ.get(ENV_VERSION_EXPLORER_URL) or DEFAULT_VERSION_EXPLORER_URL
         self.request_timeout = request_timeout
         self.retry_timeout = retry_timeout
         self._session: requests.Session | None = None
@@ -224,13 +222,18 @@ class CnvVersionExplorer:
         Returns:
             Dictionary with build info including cnv_version, current_channel,
             and channels array
+
+        Raises:
+            ValueError: If the build is not found in Version Explorer
         """
-        # Prepend 'v' if not present (API expects v4.20.3.rhel9-31)
         version_param = bundle_version if bundle_version.startswith("v") else f"v{bundle_version}"
-        return self.query_with_retry(
+        result = self.query_with_retry(
             endpoint="GetBuildInfo",
             query_string=f"version={version_param}",
         )
+        if "error" in result:
+            raise ValueError(f"Build not found: {bundle_version}. Check if the build exists in CNV Version Explorer.")
+        return result
 
 
 # --- Helper functions (stateless, no API dependency) ---

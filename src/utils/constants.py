@@ -15,3 +15,8 @@ CHANNEL_CANDIDATE = "candidate"
 # Environment Variable Names
 # ============================================================================
 ENV_VERSION_EXPLORER_URL = "VERSION_EXPLORER_URL"
+
+# ============================================================================
+# Default API URLs
+# ============================================================================
+DEFAULT_VERSION_EXPLORER_URL = "http://cnv-version-explorer.apps.cnv2.engineering.redhat.com/"
