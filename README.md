@@ -1,5 +1,7 @@
 # CNV Upgrade Utilities
 
+[![CI](https://github.com/hmeir/cnv-upgrade-utilities/actions/workflows/ci.yml/badge.svg)](https://github.com/hmeir/cnv-upgrade-utilities/actions/workflows/ci.yml)
+
 CLI tools for CNV (Container Native Virtualization) upgrade testing and release management.
 
 ## Prerequisites
@@ -32,11 +34,18 @@ cd cnv-upgrade-utilities
 uv sync --extra dev
 ```
 
-### Linting and Formatting
+### Running Tests
+
+```bash
+uv run pytest
+```
+
+### Linting, Formatting, and Type Checking
 
 ```bash
 uv run ruff check src/ tests/
 uv run ruff format src/ tests/
+uv run mypy
 ```
 
 ## Configuration
@@ -256,4 +265,12 @@ upgrade_jobs_info -s 4.20 -t 4.20
 
 ## Contributing
 
-Contributions are welcome! Please ensure code follows the project's style guidelines (enforced via `ruff`).
+Contributions are welcome! Before submitting a PR:
+
+1. Install dev dependencies: `uv sync --extra dev`
+2. Install pre-commit hooks: `uv run pre-commit install`
+3. Run tests: `uv run pytest`
+4. Run linting: `uv run ruff check src/ tests/`
+5. Run type checking: `uv run mypy`
+
+Pre-commit hooks automatically enforce code style (ruff), linting (flake8), and type checking (mypy) on every commit.

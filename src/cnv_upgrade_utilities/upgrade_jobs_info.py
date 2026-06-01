@@ -3,27 +3,28 @@ import logging
 
 import click
 from packaging.version import Version
+from pydantic import BaseModel
 
-from cnv_upgrade_utilities.utils import (
+from cnv_upgrade_utilities.upgrade_types import UpgradeType, determine_upgrade_type
+from cnv_upgrade_utilities.version_types import (
     FLEXIBLE_VERSION_TYPE,
-    UpgradeType,
     VersionFormat,
     detect_version_format,
-    determine_upgrade_type,
     format_minor_version,
 )
-from utils.constants import CHANNEL_CANDIDATE, CHANNEL_STABLE
-from utils.version_explorer import (
-    CnvVersionExplorer,
+from utils.build_helpers import (
     channel_exists,
     channel_in_stage,
     channel_released_to_prod,
-    extract_build_info_result,
     extract_filtered_build_info,
+    extract_from_build_info,
     extract_released_build_info,
     find_released_source,
     find_stable_stage_build,
 )
+from utils.constants import CHANNEL_CANDIDATE, CHANNEL_STABLE
+from utils.models import BuildResult, ReleasedBuild
+from utils.version_explorer import CnvVersionExplorer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,22 +45,22 @@ def _requires_stable_target(upgrade_type: UpgradeType) -> bool:
     return upgrade_type in (UpgradeType.Y_STREAM, UpgradeType.EUS)
 
 
-def _csv_version(build: dict) -> Version:
-    return Version(build.get("csv_version", "v0.0.0").lstrip("v"))
+def _csv_version(build: ReleasedBuild) -> Version:
+    return Version(build.csv_version.lstrip("v"))
 
 
-def _keep_newer_build(current: dict | None, candidate: dict) -> dict:
+def _keep_newer_build(current: ReleasedBuild | None, candidate: ReleasedBuild) -> ReleasedBuild:
     if current is None or _csv_version(candidate) > _csv_version(current):
         return candidate
     return current
 
 
-def build_result(upgrade_type: UpgradeType, source_info: dict, target_info: dict) -> dict:
-    """Build the result dictionary with source and target info."""
+def format_upgrade_result(upgrade_type: UpgradeType, source_info: BuildResult, target_info: BuildResult) -> dict:
+    """Assemble the final upgrade result dict from typed source and target info."""
     return {
         "upgrade_type": upgrade_type.value,
-        "source": source_info,
-        "target": target_info,
+        "source": source_info.model_dump(exclude_none=True),
+        "target": target_info.model_dump(exclude_none=True),
     }
 
 
@@ -68,7 +69,7 @@ def build_result(upgrade_type: UpgradeType, source_info: dict, target_info: dict
 # ============================================================================
 
 
-def _fetch_bundle_target(explorer: CnvVersionExplorer, version: str, upgrade_type: UpgradeType) -> dict[str, str]:
+def _fetch_bundle_target(explorer: CnvVersionExplorer, version: str, upgrade_type: UpgradeType) -> BuildResult:
     """
     Fetch target build info for BUNDLE format using GetBuildInfo.
 
@@ -76,12 +77,12 @@ def _fetch_bundle_target(explorer: CnvVersionExplorer, version: str, upgrade_typ
     Y stream / EUS: Require stable. Allow candidate fallback only for X.Y.0 builds.
     """
     build_info = explorer.get_build_info(bundle_version=version)
-    channels = build_info.get("channels", [])
-    cnv_version = build_info["cnv_version"]
+    channels = build_info.channels
+    cnv_version = build_info.cnv_version
     base_version = cnv_version.lstrip("v").rsplit(".rhel", 1)[0]
 
     if channel_exists(channels=channels, channel=CHANNEL_STABLE):
-        return extract_build_info_result(build_info=build_info, channel=CHANNEL_STABLE)
+        return extract_from_build_info(build_info=build_info, channel=CHANNEL_STABLE)
 
     if _requires_stable_target(upgrade_type=upgrade_type) and not _is_initial_release(version=base_version):
         raise ValueError(
@@ -90,12 +91,12 @@ def _fetch_bundle_target(explorer: CnvVersionExplorer, version: str, upgrade_typ
         )
 
     if channel_exists(channels=channels, channel=CHANNEL_CANDIDATE):
-        return extract_build_info_result(build_info=build_info, channel=CHANNEL_CANDIDATE)
+        return extract_from_build_info(build_info=build_info, channel=CHANNEL_CANDIDATE)
 
     raise ValueError(f"No stable or candidate channel found for target bundle version {version}")
 
 
-def _fetch_bundle_source(explorer: CnvVersionExplorer, version: str, **_kwargs) -> dict[str, str]:
+def _fetch_bundle_source(explorer: CnvVersionExplorer, version: str, exclude_version: str | None = None) -> BuildResult:
     """
     Fetch source build info for BUNDLE format using GetBuildInfo.
 
@@ -103,15 +104,15 @@ def _fetch_bundle_source(explorer: CnvVersionExplorer, version: str, **_kwargs) 
     """
     build_info = explorer.get_build_info(bundle_version=version)
 
-    current_channel = build_info.get("current_channel")
+    current_channel = build_info.current_channel
     if current_channel != CHANNEL_STABLE:
         raise ValueError(f"Source bundle version {version} has current_channel='{current_channel}', expected 'stable'")
 
-    channels = build_info.get("channels", [])
+    channels = build_info.channels
     if not channel_released_to_prod(channels=channels, channel=CHANNEL_STABLE):
         raise ValueError(f"Source bundle version {version} stable channel is not released to prod")
 
-    return extract_build_info_result(build_info=build_info, channel=CHANNEL_STABLE)
+    return extract_from_build_info(build_info=build_info, channel=CHANNEL_STABLE)
 
 
 # ============================================================================
@@ -119,7 +120,7 @@ def _fetch_bundle_source(explorer: CnvVersionExplorer, version: str, **_kwargs) 
 # ============================================================================
 
 
-def _fetch_full_target(explorer: CnvVersionExplorer, version: str, upgrade_type: UpgradeType) -> dict[str, str]:
+def _fetch_full_target(explorer: CnvVersionExplorer, version: str, upgrade_type: UpgradeType) -> BuildResult:
     """
     Fetch target build info for FULL format using GetSuccessfulBuildsByVersion.
 
@@ -130,34 +131,30 @@ def _fetch_full_target(explorer: CnvVersionExplorer, version: str, upgrade_type:
 
     Y stream / EUS (non-X.Y.0): only step 1 (stable stage), fail if not found.
     """
-    # Step 1: Try stable + stage (but not already released to prod)
     result = find_stable_stage_build(explorer=explorer, version=version)
     if result:
         return result
 
-    # For Y stream / EUS with non-X.Y.0, stable is mandatory
     if _requires_stable_target(upgrade_type=upgrade_type) and not _is_initial_release(version=version):
         raise ValueError(
             f"No stable build in stage found for target version {version}, "
             f"required for {upgrade_type.display_name} upgrade"
         )
 
-    # Step 2: Try candidate + prod (not in stage, released to prod)
     builds = explorer.get_successful_builds_by_version(version=version, channel=CHANNEL_CANDIDATE, stage=False)
     for build in builds:
-        if build.get("released_to_prod"):
+        if build.released_to_prod:
             return extract_filtered_build_info(build=build, version=version)
 
-    # Step 3: Try candidate + stage (not already released to prod)
     builds = explorer.get_successful_builds_by_version(version=version, channel=CHANNEL_CANDIDATE, stage=True)
     for build in builds:
-        if not build.get("released_to_prod"):
+        if not build.released_to_prod:
             return extract_filtered_build_info(build=build, version=version)
 
     raise ValueError(f"No stable or candidate build found for target version {version}")
 
 
-def _fetch_full_source(explorer: CnvVersionExplorer, version: str, **_kwargs) -> dict[str, str]:
+def _fetch_full_source(explorer: CnvVersionExplorer, version: str, exclude_version: str | None = None) -> BuildResult:
     """
     Fetch source build info for FULL format using GetSuccessfulBuildsByVersion.
 
@@ -167,7 +164,7 @@ def _fetch_full_source(explorer: CnvVersionExplorer, version: str, **_kwargs) ->
     """
     builds = explorer.get_successful_builds_by_version(version=version, channel=CHANNEL_STABLE, stage=False)
     for build in builds:
-        if build.get("released_to_prod"):
+        if build.released_to_prod:
             return extract_filtered_build_info(build=build, version=version)
 
     LOGGER.info(
@@ -186,87 +183,76 @@ def _fetch_full_source(explorer: CnvVersionExplorer, version: str, **_kwargs) ->
 # ============================================================================
 
 
-def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type: UpgradeType) -> dict[str, str]:
-    """
-    Fetch target build info for MINOR format using GetReleasedBuilds.
+class MinorTargetCandidates(BaseModel):
+    """Best candidates found per priority tier when scanning released builds."""
 
-    Scans released builds (including stage) to find the best target:
+    stable_stage_new: ReleasedBuild | None = None
+    stable_stage_any: ReleasedBuild | None = None
+    stable_prod: ReleasedBuild | None = None
+    candidate_prod: ReleasedBuild | None = None
+    candidate_stage: ReleasedBuild | None = None
 
-    Z stream / Latest Z:
-      1. Latest z with current_channel=stable AND stable in_stage=true AND NOT released_to_prod,
-         but only if within 2 z-versions of the latest build (skip stale stable-stage builds)
-      2. Fallback: latest z with candidate channel released_to_prod=true
-      3. Fallback: latest z with candidate channel in_stage=true
+    model_config = {"arbitrary_types_allowed": True}
 
-    Y stream / EUS:
-      1. Latest z with current_channel=stable AND stable in_stage=true (may also be released_to_prod)
-      2. Fallback: latest z with stable channel released_to_prod=true (not in stage)
-      3. Fallback (X.Y.0 only): candidate prod, then candidate stage
-      4. Fail
-    """
-    minor_version = format_minor_version(version=version)
-    builds = explorer.get_released_builds(minor_version=minor_version, stage=True)
-    if not builds:
-        raise ValueError(f"No released builds found for {minor_version}")
 
-    stable_only = _requires_stable_target(upgrade_type=upgrade_type)
-
-    # Single pass: collect best candidate per priority tier
-    stable_stage_new = None  # stable in stage, NOT released to prod (Z-stream / Latest Z)
-    stable_stage_any = None  # stable in stage, regardless of prod (Y-stream / EUS)
-    stable_prod = None  # stable released to prod, NOT in stage
-    candidate_prod = None  # candidate released to prod
-    candidate_stage = None  # candidate in stage
+def _scan_released_builds(builds: list[ReleasedBuild]) -> MinorTargetCandidates:
+    """Scan released builds and collect the best candidate per priority tier."""
+    candidates = MinorTargetCandidates()
 
     for build in builds:
-        channels = build.get("channels", [])
+        channels = build.channels
         stable_on_prod = channel_released_to_prod(channels=channels, channel=CHANNEL_STABLE)
         stable_in_stage = channel_in_stage(channels=channels, channel=CHANNEL_STABLE)
 
-        if build.get("current_channel") == CHANNEL_STABLE and stable_in_stage:
-            stable_stage_any = _keep_newer_build(current=stable_stage_any, candidate=build)
+        if build.current_channel == CHANNEL_STABLE and stable_in_stage:
+            candidates.stable_stage_any = _keep_newer_build(current=candidates.stable_stage_any, candidate=build)
             if not stable_on_prod:
-                stable_stage_new = _keep_newer_build(current=stable_stage_new, candidate=build)
+                candidates.stable_stage_new = _keep_newer_build(current=candidates.stable_stage_new, candidate=build)
 
         if stable_on_prod and not stable_in_stage:
-            stable_prod = _keep_newer_build(current=stable_prod, candidate=build)
+            candidates.stable_prod = _keep_newer_build(current=candidates.stable_prod, candidate=build)
 
         if not stable_on_prod:
             if channel_released_to_prod(channels=channels, channel=CHANNEL_CANDIDATE):
-                candidate_prod = _keep_newer_build(current=candidate_prod, candidate=build)
+                candidates.candidate_prod = _keep_newer_build(current=candidates.candidate_prod, candidate=build)
             if channel_in_stage(channels=channels, channel=CHANNEL_CANDIDATE):
-                candidate_stage = _keep_newer_build(current=candidate_stage, candidate=build)
+                candidates.candidate_stage = _keep_newer_build(current=candidates.candidate_stage, candidate=build)
 
-    # Step 1: stable in stage
+    return candidates
+
+
+def _resolve_minor_target(
+    candidates: MinorTargetCandidates,
+    builds: list[ReleasedBuild],
+    stable_only: bool,
+    upgrade_type: UpgradeType,
+    minor_version: str,
+) -> BuildResult:
+    """Resolve the best target from scanned candidates based on upgrade type priority."""
     if stable_only:
-        # Y stream / EUS: latest stable in stage (may also be on prod)
-        if stable_stage_any:
-            return extract_released_build_info(build=stable_stage_any, channel=CHANNEL_STABLE)
+        if candidates.stable_stage_any:
+            return extract_released_build_info(build=candidates.stable_stage_any, channel=CHANNEL_STABLE)
     else:
-        # Z stream / Latest Z: only stable in stage that is NOT yet released to prod,
-        # and within 2 z-versions of the latest build (skip stale stable-stage builds)
-        if stable_stage_new:
+        if candidates.stable_stage_new:
             latest_z = _csv_version(builds[0]).micro
-            stage_z = _csv_version(stable_stage_new).micro
+            stage_z = _csv_version(candidates.stable_stage_new).micro
             if latest_z - stage_z < 2:
-                return extract_released_build_info(build=stable_stage_new, channel=CHANNEL_STABLE)
+                return extract_released_build_info(build=candidates.stable_stage_new, channel=CHANNEL_STABLE)
 
-    # Y stream / EUS: fallback to stable released to prod (not in stage)
     if stable_only:
-        if stable_prod:
-            return extract_released_build_info(build=stable_prod, channel=CHANNEL_STABLE)
-        # Allow candidate fallback for X.Y.0 (new minor with no stable builds yet)
-        latest_csv = builds[0].get("csv_version", "").lstrip("v")
+        if candidates.stable_prod:
+            return extract_released_build_info(build=candidates.stable_prod, channel=CHANNEL_STABLE)
+        latest_csv = builds[0].csv_version.lstrip("v")
         if not _is_initial_release(version=latest_csv):
             raise ValueError(
                 f"No stable build (stage or prod) found for {minor_version}, "
                 f"required for {upgrade_type.display_name} upgrade"
             )
-        # Fall through to candidate steps below
 
-    # Candidate fallbacks (Z stream / Latest Z, and X.Y.0 for Y stream / EUS)
     best_candidate = (
-        _keep_newer_build(current=candidate_prod, candidate=candidate_stage) if candidate_stage else candidate_prod
+        _keep_newer_build(current=candidates.candidate_prod, candidate=candidates.candidate_stage)
+        if candidates.candidate_stage
+        else candidates.candidate_prod
     )
     if best_candidate:
         return extract_released_build_info(build=best_candidate, channel=CHANNEL_CANDIDATE)
@@ -274,15 +260,20 @@ def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type
     raise ValueError(f"No suitable target build found for {minor_version}")
 
 
-def _fetch_minor_source(
-    explorer: CnvVersionExplorer, version: str, exclude_version: str | None = None
-) -> dict[str, str]:
-    """
-    Fetch source build info for MINOR format using GetReleasedBuilds.
+def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type: UpgradeType) -> BuildResult:
+    """Fetch target build info for MINOR format using GetReleasedBuilds."""
+    minor_version = format_minor_version(version=version)
+    builds = explorer.get_released_builds(minor_version=minor_version, stage=True)
+    if not builds:
+        raise ValueError(f"No released builds found for {minor_version}")
 
-    Finds the latest z-stream with stable channel released to prod.
-    Skips builds matching exclude_version (used to avoid source=target in Z-stream).
-    """
+    candidates = _scan_released_builds(builds)
+    stable_only = _requires_stable_target(upgrade_type=upgrade_type)
+    return _resolve_minor_target(candidates, builds, stable_only, upgrade_type, minor_version)
+
+
+def _fetch_minor_source(explorer: CnvVersionExplorer, version: str, exclude_version: str | None = None) -> BuildResult:
+    """Fetch source build info for MINOR format using GetReleasedBuilds."""
     return find_released_source(
         explorer=explorer,
         minor_version=format_minor_version(version=version),
@@ -312,31 +303,16 @@ def fetch_version_info(
     is_source: bool,
     upgrade_type: UpgradeType,
     exclude_version: str | None = None,
-) -> dict[str, str]:
-    """
-    Fetch version info based on version format and upgrade context.
-
-    Routes to the appropriate format-specific fetcher based on detected version format
-    and whether this is a source or target version.
-
-    Args:
-        explorer: CnvVersionExplorer instance
-        version: Version string in any supported format
-        is_source: True if this is source version, False for target
-        upgrade_type: The determined upgrade type
-        exclude_version: Version to exclude from results (used to avoid source=target)
-
-    Returns:
-        Dictionary with version, bundle_version, iib, and channel
-    """
+) -> BuildResult:
+    """Fetch version info based on version format and upgrade context."""
     version_format = detect_version_format(version=version)
-    fetchers = _SOURCE_FETCHERS if is_source else _TARGET_FETCHERS
-    fetcher = fetchers[version_format]
 
     if is_source:
+        fetcher = _SOURCE_FETCHERS[version_format]
         return fetcher(explorer=explorer, version=version, exclude_version=exclude_version)
     else:
-        return fetcher(explorer=explorer, version=version, upgrade_type=upgrade_type)
+        target_fetcher = _TARGET_FETCHERS[version_format]
+        return target_fetcher(explorer=explorer, version=version, upgrade_type=upgrade_type)
 
 
 # ============================================================================
@@ -345,25 +321,9 @@ def fetch_version_info(
 
 
 def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, target_version: str) -> dict:
-    """
-    Get upgrade jobs info for source and target versions.
-
-    Supports three version formats for both source and target:
-    - X.Y (e.g., 4.20): Uses GetReleasedBuilds to find the best build
-    - X.Y.Z (e.g., 4.20.3): Uses GetSuccessfulBuildsByVersion with channel/stage filters
-    - X.Y.Z.rhelR-BN (e.g., 4.20.3.rhel9-18): Uses GetBuildInfo for exact build lookup
-
-    Args:
-        explorer: CnvVersionExplorer instance
-        source_version: Source version in any supported format
-        target_version: Target version in any supported format
-
-    Returns:
-        Dictionary containing upgrade type, source and target lane info
-    """
+    """Get upgrade jobs info for source and target versions."""
     upgrade_type = determine_upgrade_type(source_version=source_version, target_version=target_version)
 
-    # Fetch target first so we can exclude it from source (avoids source=target in Z-stream)
     target_info = fetch_version_info(
         explorer=explorer,
         version=target_version,
@@ -376,10 +336,10 @@ def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, tar
         version=source_version,
         is_source=True,
         upgrade_type=upgrade_type,
-        exclude_version=target_info["version"],
+        exclude_version=target_info.version,
     )
 
-    return build_result(upgrade_type=upgrade_type, source_info=source_info, target_info=target_info)
+    return format_upgrade_result(upgrade_type=upgrade_type, source_info=source_info, target_info=target_info)
 
 
 @click.command(help="Get upgrade jobs info for source and target versions")
@@ -397,7 +357,7 @@ def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, tar
     type=FLEXIBLE_VERSION_TYPE,
     help="Target version: 4.Y, 4.Y.Z, or 4.Y.Z.rhelR-BN (e.g., 4.20, 4.20.5, 4.20.5.rhel9-3)",
 )
-def main(source_version: str, target_version: str):
+def main(source_version: str, target_version: str) -> None:
     try:
         with CnvVersionExplorer() as explorer:
             result = get_upgrade_jobs_info(
