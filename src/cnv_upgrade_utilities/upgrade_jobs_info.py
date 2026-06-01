@@ -2,6 +2,7 @@ import json
 import logging
 
 import click
+from packaging.version import Version
 
 from cnv_upgrade_utilities.utils import (
     FLEXIBLE_VERSION_TYPE,
@@ -41,6 +42,16 @@ def _is_initial_release(version: str) -> bool:
 def _requires_stable_target(upgrade_type: UpgradeType) -> bool:
     """Y-stream and EUS upgrades require a stable channel for the target."""
     return upgrade_type in (UpgradeType.Y_STREAM, UpgradeType.EUS)
+
+
+def _csv_version(build: dict) -> Version:
+    return Version(build.get("csv_version", "v0.0.0").lstrip("v"))
+
+
+def _keep_newer_build(current: dict | None, candidate: dict) -> dict:
+    if current is None or _csv_version(candidate) > _csv_version(current):
+        return candidate
+    return current
 
 
 def build_result(upgrade_type: UpgradeType, source_info: dict, target_info: dict) -> dict:
@@ -182,13 +193,14 @@ def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type
     Scans released builds (including stage) to find the best target:
 
     Z stream / Latest Z:
-      1. Latest z with current_channel=stable AND stable channel in_stage=true
+      1. Latest z with current_channel=stable AND stable in_stage=true AND NOT released_to_prod,
+         but only if within 2 z-versions of the latest build (skip stale stable-stage builds)
       2. Fallback: latest z with candidate channel released_to_prod=true
       3. Fallback: latest z with candidate channel in_stage=true
 
     Y stream / EUS:
-      1. Latest z with stable channel released_to_prod=true (fully validated, skipRange confirmed)
-      2. Fallback: latest z with current_channel=stable AND stable channel in_stage=true
+      1. Latest z with current_channel=stable AND stable in_stage=true (may also be released_to_prod)
+      2. Fallback: latest z with stable channel released_to_prod=true (not in stage)
       3. Fallback (X.Y.0 only): candidate prod, then candidate stage
       4. Fail
     """
@@ -200,34 +212,49 @@ def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type
     stable_only = _requires_stable_target(upgrade_type=upgrade_type)
 
     # Single pass: collect best candidate per priority tier
-    stable_stage = None  # stable in stage, not released to prod
-    stable_prod = None  # stable released to prod
-    candidate_prod = None  # candidate released to prod (Z/Latest-Z only)
-    candidate_stage = None  # candidate in stage (Z/Latest-Z only)
+    stable_stage_new = None  # stable in stage, NOT released to prod (Z-stream / Latest Z)
+    stable_stage_any = None  # stable in stage, regardless of prod (Y-stream / EUS)
+    stable_prod = None  # stable released to prod, NOT in stage
+    candidate_prod = None  # candidate released to prod
+    candidate_stage = None  # candidate in stage
 
     for build in builds:
         channels = build.get("channels", [])
         stable_on_prod = channel_released_to_prod(channels=channels, channel=CHANNEL_STABLE)
+        stable_in_stage = channel_in_stage(channels=channels, channel=CHANNEL_STABLE)
 
-        if not stable_stage and build.get("current_channel") == CHANNEL_STABLE:
-            if channel_in_stage(channels=channels, channel=CHANNEL_STABLE) and not stable_on_prod:
-                stable_stage = build
+        if build.get("current_channel") == CHANNEL_STABLE and stable_in_stage:
+            stable_stage_any = _keep_newer_build(current=stable_stage_any, candidate=build)
+            if not stable_on_prod:
+                stable_stage_new = _keep_newer_build(current=stable_stage_new, candidate=build)
 
-        if not stable_prod and stable_on_prod:
-            stable_prod = build
+        if stable_on_prod and not stable_in_stage:
+            stable_prod = _keep_newer_build(current=stable_prod, candidate=build)
 
         if not stable_on_prod:
-            if not candidate_prod and channel_released_to_prod(channels=channels, channel=CHANNEL_CANDIDATE):
-                candidate_prod = build
-            if not candidate_stage and channel_in_stage(channels=channels, channel=CHANNEL_CANDIDATE):
-                candidate_stage = build
+            if channel_released_to_prod(channels=channels, channel=CHANNEL_CANDIDATE):
+                candidate_prod = _keep_newer_build(current=candidate_prod, candidate=build)
+            if channel_in_stage(channels=channels, channel=CHANNEL_CANDIDATE):
+                candidate_stage = _keep_newer_build(current=candidate_stage, candidate=build)
 
-    # Y stream / EUS: prefer released builds — they have validated upgrade paths (skipRange confirmed)
+    # Step 1: stable in stage
+    if stable_only:
+        # Y stream / EUS: latest stable in stage (may also be on prod)
+        if stable_stage_any:
+            return extract_released_build_info(build=stable_stage_any, channel=CHANNEL_STABLE)
+    else:
+        # Z stream / Latest Z: only stable in stage that is NOT yet released to prod,
+        # and within 2 z-versions of the latest build (skip stale stable-stage builds)
+        if stable_stage_new:
+            latest_z = _csv_version(builds[0]).micro
+            stage_z = _csv_version(stable_stage_new).micro
+            if latest_z - stage_z < 2:
+                return extract_released_build_info(build=stable_stage_new, channel=CHANNEL_STABLE)
+
+    # Y stream / EUS: fallback to stable released to prod (not in stage)
     if stable_only:
         if stable_prod:
             return extract_released_build_info(build=stable_prod, channel=CHANNEL_STABLE)
-        if stable_stage:
-            return extract_released_build_info(build=stable_stage, channel=CHANNEL_STABLE)
         # Allow candidate fallback for X.Y.0 (new minor with no stable builds yet)
         latest_csv = builds[0].get("csv_version", "").lstrip("v")
         if not _is_initial_release(version=latest_csv):
@@ -237,16 +264,12 @@ def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type
             )
         # Fall through to candidate steps below
 
-    # Z stream / Latest Z: prefer in-stage builds (newest being tested)
-    if stable_stage:
-        return extract_released_build_info(build=stable_stage, channel=CHANNEL_STABLE)
-
     # Candidate fallbacks (Z stream / Latest Z, and X.Y.0 for Y stream / EUS)
-    if candidate_prod:
-        return extract_released_build_info(build=candidate_prod, channel=CHANNEL_CANDIDATE)
-
-    if candidate_stage:
-        return extract_released_build_info(build=candidate_stage, channel=CHANNEL_CANDIDATE)
+    best_candidate = (
+        _keep_newer_build(current=candidate_prod, candidate=candidate_stage) if candidate_stage else candidate_prod
+    )
+    if best_candidate:
+        return extract_released_build_info(build=best_candidate, channel=CHANNEL_CANDIDATE)
 
     raise ValueError(f"No suitable target build found for {minor_version}")
 

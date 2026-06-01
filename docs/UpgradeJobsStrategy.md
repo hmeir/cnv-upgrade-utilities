@@ -19,7 +19,7 @@
 ### Y Stream
 
 - **Source**: Latest `X.Y-1.Z` released to stable prod.
-- **Target**: **Must** be stable. Prefers stable released to prod (upgrade path validated), falls back to stable in stage.
+- **Target**: **Must** be stable. Prefers latest stable in stage (`in_stage=true`), falls back to stable on prod only (`released_to_prod=true`, not in stage).
 
 ### EUS
 
@@ -75,12 +75,11 @@ Uses `/GetReleasedBuilds` API.
 
 **Target version (`stage=true`):**
 
-1. (Y stream / EUS only) Find latest z with stable channel `released_to_prod=true`. Released builds have fully validated upgrade paths (skipRange confirmed through the release pipeline). If no stable build found and latest z is not `X.Y.0`, fail.
-2. (Y stream / EUS only) Fallback: latest z with `current_channel=stable` and stable channel `in_stage=true` but NOT `released_to_prod=true`.
-3. (Z stream / Latest Z only) Find latest z with `current_channel=stable` and stable channel `in_stage=true` but NOT `released_to_prod=true`.
-4. (Z stream / Latest Z / X.Y.0 fallback) Find latest z with candidate channel `released_to_prod=true`.
-5. (Z stream / Latest Z / X.Y.0 fallback) Find latest z with candidate channel `in_stage=true` but NOT `released_to_prod=true`.
-6. Fail with error.
+1. (Z stream / Latest Z) Find latest z with `current_channel=stable` and stable channel `in_stage=true` but NOT `released_to_prod=true`. Skip if more than 1 z-version behind the latest build (stale).
+1. (Y stream / EUS) Find latest z with `current_channel=stable` and stable channel `in_stage=true` (may also be `released_to_prod=true`).
+2. (Y stream / EUS only) Fallback: latest z with stable channel `released_to_prod=true` and `in_stage=false`. If no stable build found and latest z is not `X.Y.0`, fail.
+3. (Z stream / Latest Z / X.Y.0 fallback) Find newest z across candidate channel `released_to_prod=true` or `in_stage=true`.
+4. Fail with error.
 
 **Source version (`stage=false`):**
 
