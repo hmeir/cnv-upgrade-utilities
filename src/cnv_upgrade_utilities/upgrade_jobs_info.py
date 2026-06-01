@@ -187,8 +187,8 @@ def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type
       3. Fallback: latest z with candidate channel in_stage=true
 
     Y stream / EUS:
-      1. Latest z with current_channel=stable AND stable channel in_stage=true
-      2. Fallback: latest z with stable channel released_to_prod=true (previous stable)
+      1. Latest z with stable channel released_to_prod=true (fully validated, skipRange confirmed)
+      2. Fallback: latest z with current_channel=stable AND stable channel in_stage=true
       3. Fallback (X.Y.0 only): candidate prod, then candidate stage
       4. Fail
     """
@@ -200,10 +200,10 @@ def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type
     stable_only = _requires_stable_target(upgrade_type=upgrade_type)
 
     # Single pass: collect best candidate per priority tier
-    stable_stage = None  # Step 1: stable in stage, not released to prod
-    stable_prod = None  # Y/EUS fallback: stable released to prod
-    candidate_prod = None  # Step 2: candidate released to prod (Z/Latest-Z only)
-    candidate_stage = None  # Step 3: candidate in stage (Z/Latest-Z only)
+    stable_stage = None  # stable in stage, not released to prod
+    stable_prod = None  # stable released to prod
+    candidate_prod = None  # candidate released to prod (Z/Latest-Z only)
+    candidate_stage = None  # candidate in stage (Z/Latest-Z only)
 
     for build in builds:
         channels = build.get("channels", [])
@@ -222,14 +222,12 @@ def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type
             if not candidate_stage and channel_in_stage(channels=channels, channel=CHANNEL_CANDIDATE):
                 candidate_stage = build
 
-    # Step 1: stable stage (not yet released to prod) — all upgrade types
-    if stable_stage:
-        return extract_released_build_info(build=stable_stage, channel=CHANNEL_STABLE)
-
-    # Y stream / EUS: fallback to previous stable (released to prod)
+    # Y stream / EUS: prefer released builds — they have validated upgrade paths (skipRange confirmed)
     if stable_only:
         if stable_prod:
             return extract_released_build_info(build=stable_prod, channel=CHANNEL_STABLE)
+        if stable_stage:
+            return extract_released_build_info(build=stable_stage, channel=CHANNEL_STABLE)
         # Allow candidate fallback for X.Y.0 (new minor with no stable builds yet)
         latest_csv = builds[0].get("csv_version", "").lstrip("v")
         if not _is_initial_release(version=latest_csv):
@@ -239,11 +237,14 @@ def _fetch_minor_target(explorer: CnvVersionExplorer, version: str, upgrade_type
             )
         # Fall through to candidate steps below
 
-    # Step 2: candidate released to prod
+    # Z stream / Latest Z: prefer in-stage builds (newest being tested)
+    if stable_stage:
+        return extract_released_build_info(build=stable_stage, channel=CHANNEL_STABLE)
+
+    # Candidate fallbacks (Z stream / Latest Z, and X.Y.0 for Y stream / EUS)
     if candidate_prod:
         return extract_released_build_info(build=candidate_prod, channel=CHANNEL_CANDIDATE)
 
-    # Step 3: candidate in stage
     if candidate_stage:
         return extract_released_build_info(build=candidate_stage, channel=CHANNEL_CANDIDATE)
 
@@ -376,10 +377,12 @@ def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, tar
 def main(source_version: str, target_version: str):
     try:
         with CnvVersionExplorer() as explorer:
-            result = get_upgrade_jobs_info(explorer=explorer, source_version=source_version, target_version=target_version)
+            result = get_upgrade_jobs_info(
+                explorer=explorer, source_version=source_version, target_version=target_version
+            )
             click.echo(json.dumps(result, indent=2))
     except (ValueError, ConnectionError, TimeoutError) as exc:
-        raise SystemExit(f"Error: {exc}")
+        raise SystemExit(f"Error: {exc}") from exc
 
 
 if __name__ == "__main__":

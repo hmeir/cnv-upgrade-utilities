@@ -195,7 +195,7 @@ def main(target_version: str, skip_target_check: bool):
 
             click.echo(json.dumps(version_info, indent=2, default=str))
     except (ValueError, ConnectionError, TimeoutError) as exc:
-        raise SystemExit(f"Error: {exc}")
+        raise SystemExit(f"Error: {exc}") from exc
 
 
 if __name__ == "__main__":
