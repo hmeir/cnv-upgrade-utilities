@@ -161,6 +161,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-mock" },
+    { name = "pyyaml" },
     { name = "ruff" },
     { name = "types-requests" },
 ]
@@ -175,6 +176,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
+    { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
     { name = "timeout-sampler", specifier = ">=1.0.22" },
