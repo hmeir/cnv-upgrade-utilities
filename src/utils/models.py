@@ -1,6 +1,8 @@
 """Pydantic models for Version Explorer API responses and internal data."""
 
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class ChannelInfo(BaseModel):
@@ -26,6 +28,18 @@ class ReleasedBuild(BaseModel):
     build_timestamp: str | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("skips", mode="before")
+    @classmethod
+    def _coerce_skips(cls, v: Any) -> list[str]:
+        """API sometimes returns "" or null instead of [] for empty skips."""
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [s for s in v.split(",") if s] if v else []
+        if isinstance(v, list):
+            return v
+        return list(v)
 
 
 class SuccessfulBuild(BaseModel):
