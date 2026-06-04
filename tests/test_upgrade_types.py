@@ -7,6 +7,7 @@ from cnv_upgrade_utilities.upgrade_types import (
     UpgradeType,
     determine_upgrade_type,
     get_applicable_upgrade_types,
+    is_eol_version,
     is_eus_version,
 )
 
@@ -99,6 +100,35 @@ class TestDetermineUpgradeType:
     def test_large_gap_raises(self):
         with pytest.raises(ValueError, match="Unsupported upgrade"):
             determine_upgrade_type("4.16", "4.20")
+
+    def test_eol_source_raises(self):
+        with pytest.raises(ValueError, match="EOL"):
+            determine_upgrade_type("4.15", "4.16")
+
+    def test_eol_target_raises(self):
+        with pytest.raises(ValueError, match="EOL"):
+            determine_upgrade_type("4.12", "4.13")
+
+    def test_eol_both_raises(self):
+        with pytest.raises(ValueError, match="EOL"):
+            determine_upgrade_type("4.13", "4.13")
+
+
+class TestIsEolVersion:
+    @pytest.mark.parametrize(
+        ("version", "expected"),
+        [
+            ("4.13", True),
+            ("4.15", True),
+            ("4.13.5", True),
+            ("4.15.10", True),
+            ("4.12", False),
+            ("4.16", False),
+            ("4.20", False),
+        ],
+    )
+    def test_is_eol_version(self, version, expected):
+        assert is_eol_version(version) == expected
 
 
 class TestGetApplicableUpgradeTypes:
