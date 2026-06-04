@@ -294,15 +294,15 @@ uv sync --extra dev
 # 2. Install pre-commit hooks
 uv run pre-commit install
 
-# 3. Run unit tests
-uv run pytest
+# 3. Run all checks (lint, tests, security, FBC)
+tox
 
-# 4. Run E2E tests (requires Version Explorer API access)
-uv run pytest -m e2e
+# 4. Run E2E tests (requires RH network / Version Explorer API)
+tox -e e2e
 
-# 5. Run linting and type checking
-uv run ruff check src/ tests/
-uv run mypy
+# 5. Run a specific tox environment
+tox -e lint
+tox -e py312
 ```
 
-All unit tests and E2E tests must pass before submitting. Pre-commit hooks enforce code style (ruff), linting (flake8), and type checking (mypy) on every commit.
+All checks must pass before submitting. Pre-commit hooks enforce code style (ruff), linting (flake8), and type checking (mypy) on every commit.
