@@ -93,14 +93,21 @@ def fetch_source_version(
     if minor_offset is None:
         source_minor = f"v{target_version.major}.{target_version.minor}"
         required_csv = f"v{target_version.major}.{target_version.minor}.0"
+        max_csv = None
+    elif minor_offset == 0:
+        source_minor = f"v{target_version.major}.{target_version.minor}"
+        required_csv = None
+        max_csv = str(target_version)
     else:
         source_minor = f"v{target_version.major}.{target_version.minor + minor_offset}"
         required_csv = None
+        max_csv = None
 
     return find_released_source(
         explorer=explorer,
         minor_version=source_minor,
         required_csv=required_csv,
+        max_csv=max_csv,
     )
 
 
