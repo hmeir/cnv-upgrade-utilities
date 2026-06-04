@@ -27,9 +27,9 @@ class TestReleaseChecklistSupported:
         )
         actual_lane_names = set(result["upgrade_lanes"].keys())
 
-        assert (
-            actual_lane_names == expected_lane_names
-        ), f"For {version}.1: expected lanes {expected_lane_names}, got {actual_lane_names}"
+        assert actual_lane_names == expected_lane_names, (
+            f"For {version}.1: expected lanes {expected_lane_names}, got {actual_lane_names}"
+        )
 
         for lane_name, lane_data in result["upgrade_lanes"].items():
             assert lane_data["source_version"], f"Lane '{lane_name}' missing source_version"

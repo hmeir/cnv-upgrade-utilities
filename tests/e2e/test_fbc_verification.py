@@ -97,9 +97,9 @@ class TestFbcChannelConsistency:
             fbc_replaces = fbc_entry["replaces_version"]
 
             if fbc_replaces and ve_replaces:
-                assert (
-                    ve_replaces == fbc_replaces
-                ), f"Build {csv_version}: Version Explorer replaces={ve_replaces} but FBC says replaces={fbc_replaces}"
+                assert ve_replaces == fbc_replaces, (
+                    f"Build {csv_version}: Version Explorer replaces={ve_replaces} but FBC says replaces={fbc_replaces}"
+                )
 
     @pytest.mark.parametrize("minor", [parse_minor_version(v) for v in SUPPORTED_VERSIONS], ids=SUPPORTED_VERSIONS)
     def test_skip_range_matches_fbc(self, fbc_explorer, fbc_repo_path, minor):
