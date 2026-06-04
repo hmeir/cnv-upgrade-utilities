@@ -6,11 +6,13 @@ import tempfile
 
 import pytest
 
-from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
-from cnv_upgrade_utilities.version_types import parse_minor_version
-from utils.version_explorer import CnvVersionExplorer
+yaml = pytest.importorskip("yaml", reason="pyyaml required for FBC tests")
 
-from .utils.fbc_parser import get_fbc_entry_by_version, get_fbc_versions_in_channel, parse_fbc_graph
+from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS  # noqa: E402
+from cnv_upgrade_utilities.version_types import parse_minor_version  # noqa: E402
+from utils.version_explorer import CnvVersionExplorer  # noqa: E402
+
+from .utils.fbc_parser import get_fbc_entry_by_version, get_fbc_versions_in_channel, parse_fbc_graph  # noqa: E402
 
 FBC_REPO_URL = "https://github.com/openshift-cnv/cnv-fbc.git"
 FBC_BRANCH = "stage"
