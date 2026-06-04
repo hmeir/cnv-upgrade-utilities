@@ -88,7 +88,6 @@ NEGATIVE_PATHS = [
     pytest.param("4.16", "4.19", id="unsupported-gap"),
     pytest.param("4.17", "4.19", id="odd-eus"),
     pytest.param("4.20.5", "4.20.5", id="same-version"),
-    pytest.param("4.19.0", "4.20", id="latest-z-cross-minor"),
     *_generate_eol_negative_paths(),
 ]
 

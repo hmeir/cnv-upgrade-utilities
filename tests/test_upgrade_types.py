@@ -90,8 +90,8 @@ class TestDetermineUpgradeType:
             determine_upgrade_type("4.19", "4.21")
 
     def test_latest_z_cross_minor_raises(self):
-        with pytest.raises(ValueError, match="latest-z upgrade requires same minor"):
-            determine_upgrade_type("4.19.0", "4.20")
+        # 4.19.0 → 4.20 is a valid Y-stream upgrade (source happens to be .0)
+        assert determine_upgrade_type("4.19.0", "4.20") == UpgradeType.Y_STREAM
 
     def test_unsupported_gap_raises(self):
         with pytest.raises(ValueError, match="Unsupported upgrade"):
@@ -119,6 +119,15 @@ class TestDetermineUpgradeType:
     def test_cross_major_downgrade_raises(self):
         with pytest.raises(ValueError, match="cannot downgrade"):
             determine_upgrade_type("5.0", "4.22")
+
+    def test_dot_zero_source_cross_minor_is_eus(self):
+        assert determine_upgrade_type("4.16.0", "4.18") == UpgradeType.EUS
+
+    def test_dot_zero_source_cross_minor_is_y_stream(self):
+        assert determine_upgrade_type("4.16.0", "4.17") == UpgradeType.Y_STREAM
+
+    def test_dot_zero_bundle_cross_minor_is_eus(self):
+        assert determine_upgrade_type("4.16.0.rhel9-2746", "4.18") == UpgradeType.EUS
 
 
 class TestIsEolVersion:
