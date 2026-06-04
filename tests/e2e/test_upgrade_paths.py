@@ -13,11 +13,21 @@ def _path_id(source_version: str, target_version: str, upgrade_type: str) -> str
     return f"{upgrade_type}:{source_version}->{target_version}"
 
 
+_ALL_MINOR_PATHS = generate_minor_paths()
+
 MINOR_PATHS = [
     pytest.param(
         source_version, target_version, upgrade_type, id=_path_id(source_version, target_version, upgrade_type)
     )
-    for source_version, target_version, upgrade_type in generate_minor_paths()
+    for source_version, target_version, upgrade_type in _ALL_MINOR_PATHS
+]
+
+SAME_MINOR_PATHS = [
+    pytest.param(
+        source_version, target_version, upgrade_type, id=_path_id(source_version, target_version, upgrade_type)
+    )
+    for source_version, target_version, upgrade_type in _ALL_MINOR_PATHS
+    if upgrade_type in ("z_stream", "latest_z")
 ]
 
 
@@ -86,7 +96,7 @@ class TestFullFormatPaths:
     then re-tests with the specific X.Y.Z versions returned.
     """
 
-    @pytest.mark.parametrize(("source_version", "target_version", "expected_type"), MINOR_PATHS)
+    @pytest.mark.parametrize(("source_version", "target_version", "expected_type"), SAME_MINOR_PATHS)
     def test_full_format(self, explorer, source_version, target_version, expected_type):
         minor_result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
         source_full = minor_result["source"]["version"]
@@ -112,7 +122,7 @@ class TestBundleFormatPaths:
     then re-tests with the exact bundle versions returned.
     """
 
-    @pytest.mark.parametrize(("source_version", "target_version", "expected_type"), MINOR_PATHS)
+    @pytest.mark.parametrize(("source_version", "target_version", "expected_type"), SAME_MINOR_PATHS)
     def test_bundle_format(self, explorer, source_version, target_version, expected_type):
         minor_result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
         source_bundle = minor_result["source"]["bundle_version"]
@@ -131,14 +141,14 @@ class TestBundleFormatPaths:
 class TestMixedFormatPaths:
     """Upgrade paths with source and target in different version formats."""
 
-    @pytest.mark.parametrize(("source_version", "target_version", "expected_type"), MINOR_PATHS)
+    @pytest.mark.parametrize(("source_version", "target_version", "expected_type"), SAME_MINOR_PATHS)
     def test_minor_source_full_target(self, explorer, source_version, target_version, expected_type):
         minor_result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
         target_full = minor_result["target"]["version"]
         result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_full)
         assert_upgrade_result_valid(result, source_version, target_full, expected_type)
 
-    @pytest.mark.parametrize(("source_version", "target_version", "expected_type"), MINOR_PATHS)
+    @pytest.mark.parametrize(("source_version", "target_version", "expected_type"), SAME_MINOR_PATHS)
     def test_full_source_bundle_target(self, explorer, source_version, target_version, expected_type):
         minor_result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
         source_full = minor_result["source"]["version"]

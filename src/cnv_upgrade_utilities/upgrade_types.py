@@ -7,6 +7,7 @@ from packaging.version import Version
 from cnv_upgrade_utilities.version_types import (
     format_minor_version,
     is_latest_z_source,
+    parse_major_version,
     parse_minor_version,
     parse_patch_version,
 )
@@ -110,10 +111,17 @@ def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeT
     if is_eol_version(target_version):
         raise ValueError(f"Invalid upgrade: target version {target_version} is EOL")
 
+    source_major = parse_major_version(source_version)
+    target_major = parse_major_version(target_version)
     source_minor = parse_minor_version(source_version)
     target_minor = parse_minor_version(target_version)
     source_patch = parse_patch_version(source_version)
     target_patch = parse_patch_version(target_version)
+
+    if source_major != target_major:
+        if target_major > source_major:
+            return UpgradeType.Y_STREAM
+        raise ValueError(f"Invalid upgrade: cannot downgrade. source={source_version}, target={target_version}")
 
     if source_patch is not None and target_patch is not None:
         if source_minor == target_minor and source_patch == target_patch:

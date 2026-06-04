@@ -21,7 +21,6 @@ class ReleasedBuild(BaseModel):
     current_channel: str | None = None
     channels: list[ChannelInfo] = Field(default_factory=list)
     replaces: str | None = None
-    skips: list[str] = Field(default_factory=list)
     skip_range: str | None = Field(None, alias="skipRange")
     build_timestamp: str | None = None
 

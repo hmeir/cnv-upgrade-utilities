@@ -9,8 +9,10 @@ from cnv_upgrade_utilities.version_types import (
     detect_version_format,
     format_minor_version,
     is_latest_z_source,
+    parse_major_version,
     parse_minor_version,
     parse_patch_version,
+    strip_bundle_suffix,
 )
 
 
@@ -45,7 +47,7 @@ class TestRegexPatterns:
 
     @pytest.mark.parametrize(
         "version",
-        ["4.20.3.rhel9-31", "4.0.0.rhel8-1", "4.20.99.rhel9-100", "5.0.0.rhel9-1"],
+        ["4.20.3.rhel9-31", "4.0.0.rhel8-1", "4.20.99.rhel9-100", "5.0.0.rhel9-1", "4.12.24-22"],
     )
     def test_bundle_version_valid(self, version):
         assert BUNDLE_VERSION_PATTERN.match(version)
@@ -59,7 +61,18 @@ class TestRegexPatterns:
 
     @pytest.mark.parametrize(
         "version",
-        ["4.20", "4.20.3", "4.20.3.rhel9-31", "4.0", "4.0.0", "4.0.0.rhel8-1", "5.0", "5.0.0", "5.0.0.rhel9-1"],
+        [
+            "4.20",
+            "4.20.3",
+            "4.20.3.rhel9-31",
+            "4.0",
+            "4.0.0",
+            "4.0.0.rhel8-1",
+            "5.0",
+            "5.0.0",
+            "5.0.0.rhel9-1",
+            "4.12.24-22",
+        ],
     )
     def test_flexible_version_valid(self, version):
         assert FLEXIBLE_VERSION_PATTERN.match(version)
@@ -70,6 +83,36 @@ class TestRegexPatterns:
     )
     def test_flexible_version_invalid(self, version):
         assert not FLEXIBLE_VERSION_PATTERN.match(version)
+
+
+class TestStripBundleSuffix:
+    @pytest.mark.parametrize(
+        ("version", "expected"),
+        [
+            ("4.20.3.rhel9-31", "4.20.3"),
+            ("4.12.24-22", "4.12.24"),
+            ("4.20.0.rhel9-234", "4.20.0"),
+            ("4.12.0-769", "4.12.0"),
+            ("4.20.3", "4.20.3"),
+            ("4.20", "4.20"),
+        ],
+    )
+    def test_strip_bundle_suffix(self, version, expected):
+        assert strip_bundle_suffix(version) == expected
+
+
+class TestParseMajorVersion:
+    @pytest.mark.parametrize(
+        ("version", "expected"),
+        [
+            ("4.20", 4),
+            ("5.0", 5),
+            ("4.20.3", 4),
+            ("5.0.1", 5),
+        ],
+    )
+    def test_parse_major_version(self, version, expected):
+        assert parse_major_version(version) == expected
 
 
 class TestParseMinorVersion:
@@ -96,6 +139,8 @@ class TestParsePatchVersion:
             ("4.20.99", 99),
             ("4.20.3.rhel9-31", 3),
             ("4.20.0.rhel9-1", 0),
+            ("4.12.24-22", 24),
+            ("4.12.0-769", 0),
             ("4.20", None),
             ("4.0", None),
         ],
@@ -132,7 +177,8 @@ class TestIsLatestZSource:
             ("4.0.0", True),
             ("4.20.1", False),
             ("4.20", False),
-            ("4.20.0.rhel9-1", False),
+            ("4.20.0.rhel9-1", True),
+            ("4.20.1.rhel9-5", False),
         ],
     )
     def test_is_latest_z_source(self, version, expected):

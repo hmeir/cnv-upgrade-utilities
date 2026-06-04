@@ -10,9 +10,9 @@ import click
 # ============================================================================
 FULL_VERSION_PATTERN = re.compile(r"^[45]\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 MINOR_VERSION_PATTERN = re.compile(r"^[45]\.(0|[1-9]\d*)$")
-BUNDLE_VERSION_PATTERN = re.compile(r"^[45]\.(0|[1-9]\d*)\.(0|[1-9]\d*)\.rhel\d+-\d+$")
+BUNDLE_VERSION_PATTERN = re.compile(r"^[45]\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\.rhel\d+)?-\d+$")
 
-FLEXIBLE_VERSION_PATTERN = re.compile(r"^[45]\.(0|[1-9]\d*)" r"(?:\.(0|[1-9]\d*)" r"(?:\.rhel\d+-\d+)?)?$")
+FLEXIBLE_VERSION_PATTERN = re.compile(r"^[45]\.(0|[1-9]\d*)" r"(?:\.(0|[1-9]\d*)" r"(?:(?:\.rhel\d+)?-\d+)?)?$")
 
 
 # ============================================================================
@@ -78,8 +78,22 @@ FLEXIBLE_VERSION_TYPE = VersionParamType(
 # ============================================================================
 
 
+def strip_bundle_suffix(version: str) -> str:
+    """Strip bundle suffix (.rhelR-BN or -BN) to get X.Y.Z."""
+    if ".rhel" in version:
+        return version.rsplit(".rhel", 1)[0]
+    if "-" in version:
+        return version.rsplit("-", 1)[0]
+    return version
+
+
+def parse_major_version(version: str) -> int:
+    """Extract the major version number from a version string (X.Y or X.Y.z)."""
+    return int(version.split(".")[0])
+
+
 def parse_minor_version(version: str) -> int:
-    """Extract the minor version number from a version string (4.Y or 4.Y.z)."""
+    """Extract the minor version number from a version string (X.Y or X.Y.z)."""
     return int(version.split(".")[1])
 
 
@@ -91,7 +105,7 @@ def parse_patch_version(version: str) -> int | None:
     """
     version_format = detect_version_format(version)
     if version_format == VersionFormat.BUNDLE:
-        parts = version.rsplit(".rhel", 1)[0].split(".")
+        parts = strip_bundle_suffix(version).split(".")
         return int(parts[2]) if len(parts) >= 3 else None
     elif version_format == VersionFormat.FULL:
         parts = version.split(".")
@@ -100,11 +114,14 @@ def parse_patch_version(version: str) -> int | None:
 
 
 def is_latest_z_source(source_version: str) -> bool:
-    """Check if source version indicates a latest-z upgrade (explicit 4.Y.0 format)."""
+    """Check if source version indicates a latest-z upgrade (X.Y.0 or X.Y.0.rhelR-BN format)."""
     version_format = detect_version_format(source_version)
     if version_format == VersionFormat.FULL:
         parts = source_version.split(".")
         return int(parts[2]) == 0
+    if version_format == VersionFormat.BUNDLE:
+        patch = parse_patch_version(source_version)
+        return patch == 0
     return False
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from cnv_upgrade_utilities.version_types import strip_bundle_suffix
 from utils.constants import CHANNEL_STABLE
 from utils.models import BuildInfo, BuildResult, ChannelInfo, ReleasedBuild, SuccessfulBuild
 
@@ -78,7 +79,7 @@ def extract_from_build_info(build_info: BuildInfo, channel: str) -> BuildResult:
     cnv_version = build_info.cnv_version
     channel_info = get_channel_info(channels=build_info.channels, channel=channel)
     return BuildResult(
-        version=cnv_version.lstrip("v").rsplit(".rhel", 1)[0],
+        version=strip_bundle_suffix(cnv_version.lstrip("v")),
         bundle_version=cnv_version.lstrip("v"),
         iib=channel_info.iib,
         channel=channel,
