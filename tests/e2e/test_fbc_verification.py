@@ -14,6 +14,8 @@ from utils.version_explorer import CnvVersionExplorer  # noqa: E402
 
 from .utils.fbc_parser import get_fbc_entry_by_version, get_fbc_versions_in_channel, parse_fbc_graph  # noqa: E402
 
+pytestmark = [pytest.mark.fbc, pytest.mark.e2e]
+
 FBC_REPO_URL = "https://github.com/openshift-cnv/cnv-fbc.git"
 FBC_BRANCH = "stage"
 
@@ -45,7 +47,6 @@ def fbc_explorer():
         yield exp
 
 
-@pytest.mark.fbc
 class TestFbcChannelConsistency:
     """Verify that Version Explorer build data matches FBC graph.yaml."""
 
@@ -132,7 +133,6 @@ class TestFbcChannelConsistency:
                 )
 
 
-@pytest.mark.fbc
 class TestFbcStaleStageDetection:
     """Detect stale in_stage flags by comparing against FBC version ordering."""
 
