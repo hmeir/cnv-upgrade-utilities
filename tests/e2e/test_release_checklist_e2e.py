@@ -6,7 +6,7 @@ from packaging.version import Version
 from cnv_upgrade_utilities.release_checklist_upgrade_plan import get_upgrade_paths_info
 from cnv_upgrade_utilities.upgrade_types import EOL_VERSIONS, SUPPORTED_VERSIONS
 
-from .expected_lanes import compute_expected_lanes
+from .utils.expected_lanes import compute_expected_lanes
 
 
 @pytest.mark.e2e
