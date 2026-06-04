@@ -1,35 +1,40 @@
 import os
 
 import pytest
+from packaging.version import Version
 
-from cnv_upgrade_utilities.upgrade_types import SKIP_Y_STREAM_UPGRADE_MINORS
+from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
 from utils.version_explorer import CnvVersionExplorer
 
-SUPPORTED_MINORS = [12, 14, 16, 17, 18, 19, 20, 21, 22]
+_SUPPORTED_SET = frozenset(SUPPORTED_VERSIONS)
 
 
 def generate_minor_paths() -> list[tuple[str, str, str]]:
-    """Generate all valid MINOR-format (source, target, expected_type) tuples."""
+    """Generate all valid (source, target, expected_type) tuples from SUPPORTED_VERSIONS."""
     paths = []
 
-    for minor in SUPPORTED_MINORS:
-        paths.append((f"4.{minor}", f"4.{minor}", "z_stream"))
+    for v_str in SUPPORTED_VERSIONS:
+        paths.append((v_str, v_str, "z_stream"))
 
-    for i, minor in enumerate(SUPPORTED_MINORS[:-1]):
-        next_minor = SUPPORTED_MINORS[i + 1]
-        if minor not in SKIP_Y_STREAM_UPGRADE_MINORS:
-            paths.append((f"4.{minor}", f"4.{next_minor}", "y_stream"))
+    for v_str in SUPPORTED_VERSIONS:
+        v = Version(v_str)
+        source_str = f"{v.major}.{v.minor - 1}"
+        if source_str in _SUPPORTED_SET:
+            paths.append((source_str, v_str, "y_stream"))
 
-    for i, minor in enumerate(SUPPORTED_MINORS):
-        if minor % 2 != 0:
+    for v_str in SUPPORTED_VERSIONS:
+        v = Version(v_str)
+        if v.minor % 2 != 0:
             continue
-        for j in range(i + 1, len(SUPPORTED_MINORS)):
-            target_minor = SUPPORTED_MINORS[j]
-            if target_minor == minor + 2 and target_minor % 2 == 0:
-                paths.append((f"4.{minor}", f"4.{target_minor}", "eus"))
+        source_minor = v.minor - 2
+        if source_minor < 0:
+            continue
+        source_str = f"{v.major}.{source_minor}"
+        if source_str in _SUPPORTED_SET and source_minor % 2 == 0:
+            paths.append((source_str, v_str, "eus"))
 
-    for minor in SUPPORTED_MINORS:
-        paths.append((f"4.{minor}.0", f"4.{minor}", "latest_z"))
+    for v_str in SUPPORTED_VERSIONS:
+        paths.append((f"{v_str}.0", v_str, "latest_z"))
 
     return paths
 

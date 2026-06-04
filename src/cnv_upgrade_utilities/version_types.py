@@ -8,15 +8,11 @@ import click
 # ============================================================================
 # Version Regex Patterns
 # ============================================================================
-FULL_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")  # 4.Y.z
-MINOR_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)$")  # 4.Y
-BUNDLE_VERSION_PATTERN = re.compile(r"^4\.(0|[1-9]\d*)\.(0|[1-9]\d*)\.rhel\d+-\d+$")  # 4.Y.Z.rhelR-BN
+FULL_VERSION_PATTERN = re.compile(r"^[45]\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+MINOR_VERSION_PATTERN = re.compile(r"^[45]\.(0|[1-9]\d*)$")
+BUNDLE_VERSION_PATTERN = re.compile(r"^[45]\.(0|[1-9]\d*)\.(0|[1-9]\d*)\.rhel\d+-\d+$")
 
-FLEXIBLE_VERSION_PATTERN = re.compile(
-    r"^4\.(0|[1-9]\d*)"  # 4.Y (required base)
-    r"(?:\.(0|[1-9]\d*)"  # .Z (optional)
-    r"(?:\.rhel\d+-\d+)?)?$"  # .rhelR-BN (optional, only if .Z exists)
-)
+FLEXIBLE_VERSION_PATTERN = re.compile(r"^[45]\.(0|[1-9]\d*)" r"(?:\.(0|[1-9]\d*)" r"(?:\.rhel\d+-\d+)?)?$")
 
 
 # ============================================================================

@@ -2,13 +2,45 @@
 
 from enum import Enum
 
+from packaging.version import Version
+
 from cnv_upgrade_utilities.version_types import (
     is_latest_z_source,
     parse_minor_version,
     parse_patch_version,
 )
 
-SKIP_Y_STREAM_UPGRADE_MINORS = frozenset({12, 14})
+SUPPORTED_VERSIONS = [
+    "4.12",
+    "4.14",
+    "4.16",
+    "4.17",
+    "4.18",
+    "4.19",
+    "4.20",
+    "4.21",
+    "4.22",
+]
+
+EOL_VERSIONS = frozenset({"4.13", "4.15"})
+
+_SUPPORTED_VERSION_SET = frozenset(SUPPORTED_VERSIONS)
+
+
+def _compute_skip_y_stream_minors() -> frozenset[int]:
+    """Minors where Y-stream upgrade is not applicable (Y-1 is EOL or unsupported)."""
+    supported_set = {Version(v) for v in SUPPORTED_VERSIONS}
+    eol_set = {Version(v) for v in EOL_VERSIONS}
+    skip = set()
+    for v_str in SUPPORTED_VERSIONS:
+        v = Version(v_str)
+        source = Version(f"{v.major}.{v.minor - 1}")
+        if source in eol_set or source not in supported_set:
+            skip.add(v.minor)
+    return frozenset(skip)
+
+
+SKIP_Y_STREAM_UPGRADE_MINORS = _compute_skip_y_stream_minors()
 
 
 class UpgradeType(Enum):
@@ -41,7 +73,9 @@ class UpgradeType(Enum):
             case UpgradeType.Y_STREAM:
                 return minor not in SKIP_Y_STREAM_UPGRADE_MINORS
             case UpgradeType.EUS:
-                return z == 0 and minor % 2 == 0
+                if z != 0 or minor % 2 != 0:
+                    return False
+                return f"4.{minor - 2}" in _SUPPORTED_VERSION_SET
             case _:
                 return False
 

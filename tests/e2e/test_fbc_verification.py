@@ -6,9 +6,10 @@ import tempfile
 
 import pytest
 
+from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
+from cnv_upgrade_utilities.version_types import parse_minor_version
 from utils.version_explorer import CnvVersionExplorer
 
-from .conftest import SUPPORTED_MINORS
 from .fbc_parser import get_fbc_entry_by_version, get_fbc_versions_in_channel, parse_fbc_graph
 
 FBC_REPO_URL = "https://github.com/openshift-cnv/cnv-fbc.git"
@@ -49,7 +50,7 @@ def fbc_explorer():
 class TestFbcChannelConsistency:
     """Verify that Version Explorer build data matches FBC graph.yaml."""
 
-    @pytest.mark.parametrize("minor", SUPPORTED_MINORS)
+    @pytest.mark.parametrize("minor", [parse_minor_version(v) for v in SUPPORTED_VERSIONS], ids=SUPPORTED_VERSIONS)
     def test_released_builds_exist_in_fbc(self, fbc_explorer, fbc_repo_path, minor):
         """Each build returned by Version Explorer should have a corresponding FBC entry."""
         fbc_channels = parse_fbc_graph(fbc_repo_path, minor)
@@ -72,7 +73,7 @@ class TestFbcChannelConsistency:
                 f"but not found in FBC graph.yaml for v4.{minor}/{channel}"
             )
 
-    @pytest.mark.parametrize("minor", SUPPORTED_MINORS)
+    @pytest.mark.parametrize("minor", [parse_minor_version(v) for v in SUPPORTED_VERSIONS], ids=SUPPORTED_VERSIONS)
     def test_replaces_field_matches_fbc(self, fbc_explorer, fbc_repo_path, minor):
         """The 'replaces' field in Version Explorer should match FBC graph.yaml."""
         fbc_channels = parse_fbc_graph(fbc_repo_path, minor)
@@ -97,12 +98,11 @@ class TestFbcChannelConsistency:
             fbc_replaces = fbc_entry["replaces_version"]
 
             if fbc_replaces and ve_replaces:
-                assert ve_replaces == fbc_replaces, (
-                    f"Build {csv_version}: Version Explorer replaces={ve_replaces} "
-                    f"but FBC says replaces={fbc_replaces}"
-                )
+                assert (
+                    ve_replaces == fbc_replaces
+                ), f"Build {csv_version}: Version Explorer replaces={ve_replaces} but FBC says replaces={fbc_replaces}"
 
-    @pytest.mark.parametrize("minor", SUPPORTED_MINORS)
+    @pytest.mark.parametrize("minor", [parse_minor_version(v) for v in SUPPORTED_VERSIONS], ids=SUPPORTED_VERSIONS)
     def test_skip_range_matches_fbc(self, fbc_explorer, fbc_repo_path, minor):
         """The 'skipRange' field should match between Version Explorer and FBC."""
         fbc_channels = parse_fbc_graph(fbc_repo_path, minor)
@@ -137,7 +137,7 @@ class TestFbcChannelConsistency:
 class TestFbcStaleStageDetection:
     """Detect stale in_stage flags by comparing against FBC version ordering."""
 
-    @pytest.mark.parametrize("minor", SUPPORTED_MINORS)
+    @pytest.mark.parametrize("minor", [parse_minor_version(v) for v in SUPPORTED_VERSIONS], ids=SUPPORTED_VERSIONS)
     def test_no_stale_in_stage_in_stable_channel(self, fbc_explorer, fbc_repo_path, minor):
         """
         If a build is in_stage=True for stable channel, no newer z-stream

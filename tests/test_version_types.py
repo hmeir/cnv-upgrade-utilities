@@ -17,56 +17,56 @@ from cnv_upgrade_utilities.version_types import (
 class TestRegexPatterns:
     @pytest.mark.parametrize(
         "version",
-        ["4.20.0", "4.20.1", "4.0.0", "4.20.99", "4.100.200"],
+        ["4.20.0", "4.20.1", "4.0.0", "4.20.99", "4.100.200", "5.0.0", "5.0.1"],
     )
     def test_full_version_valid(self, version):
         assert FULL_VERSION_PATTERN.match(version)
 
     @pytest.mark.parametrize(
         "version",
-        ["4.20", "4.20.0.rhel9-1", "3.20.0", "v4.20.0", "4.20.01", "4.020.0", "4.20.0.1"],
+        ["4.20", "4.20.0.rhel9-1", "3.20.0", "v4.20.0", "4.20.01", "4.020.0", "4.20.0.1", "6.0.0"],
     )
     def test_full_version_invalid(self, version):
         assert not FULL_VERSION_PATTERN.match(version)
 
     @pytest.mark.parametrize(
         "version",
-        ["4.20", "4.0", "4.1", "4.100"],
+        ["4.20", "4.0", "4.1", "4.100", "5.0", "5.1"],
     )
     def test_minor_version_valid(self, version):
         assert MINOR_VERSION_PATTERN.match(version)
 
     @pytest.mark.parametrize(
         "version",
-        ["4.20.0", "4.020", "3.20", "v4.20", "4.20.0.rhel9-1"],
+        ["4.20.0", "4.020", "3.20", "v4.20", "4.20.0.rhel9-1", "6.0"],
     )
     def test_minor_version_invalid(self, version):
         assert not MINOR_VERSION_PATTERN.match(version)
 
     @pytest.mark.parametrize(
         "version",
-        ["4.20.3.rhel9-31", "4.0.0.rhel8-1", "4.20.99.rhel9-100"],
+        ["4.20.3.rhel9-31", "4.0.0.rhel8-1", "4.20.99.rhel9-100", "5.0.0.rhel9-1"],
     )
     def test_bundle_version_valid(self, version):
         assert BUNDLE_VERSION_PATTERN.match(version)
 
     @pytest.mark.parametrize(
         "version",
-        ["4.20.3", "4.20", "4.20.3.rhel-1", "4.20.3.rhel91", "v4.20.3.rhel9-31"],
+        ["4.20.3", "4.20", "4.20.3.rhel-1", "4.20.3.rhel91", "v4.20.3.rhel9-31", "6.0.0.rhel9-1"],
     )
     def test_bundle_version_invalid(self, version):
         assert not BUNDLE_VERSION_PATTERN.match(version)
 
     @pytest.mark.parametrize(
         "version",
-        ["4.20", "4.20.3", "4.20.3.rhel9-31", "4.0", "4.0.0", "4.0.0.rhel8-1"],
+        ["4.20", "4.20.3", "4.20.3.rhel9-31", "4.0", "4.0.0", "4.0.0.rhel8-1", "5.0", "5.0.0", "5.0.0.rhel9-1"],
     )
     def test_flexible_version_valid(self, version):
         assert FLEXIBLE_VERSION_PATTERN.match(version)
 
     @pytest.mark.parametrize(
         "version",
-        ["3.20", "v4.20", "4.20.3.1", "4.020.3"],
+        ["3.20", "v4.20", "4.20.3.1", "4.020.3", "6.0"],
     )
     def test_flexible_version_invalid(self, version):
         assert not FLEXIBLE_VERSION_PATTERN.match(version)
