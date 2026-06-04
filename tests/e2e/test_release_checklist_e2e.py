@@ -6,7 +6,6 @@ from packaging.version import Version
 from cnv_upgrade_utilities.release_checklist_upgrade_plan import get_upgrade_paths_info
 from cnv_upgrade_utilities.upgrade_types import EOL_VERSIONS, SUPPORTED_VERSIONS
 
-from .conftest import get_version_z_depth
 from .utils.expected_lanes import compute_expected_lanes
 
 
@@ -15,9 +14,9 @@ class TestReleaseChecklistSupported:
     """Verify release checklist returns expected lanes for each supported version."""
 
     @pytest.mark.parametrize("version", SUPPORTED_VERSIONS, ids=SUPPORTED_VERSIONS)
-    def test_upgrade_lanes_match_expected(self, explorer, version):
+    def test_upgrade_lanes_match_expected(self, explorer, version, version_z_depth):
         """Lanes returned should match independently computed expected lanes."""
-        max_z = get_version_z_depth().get(version, 0)
+        max_z = version_z_depth.get(version, 0)
         target = Version(f"{version}.{max_z}")
 
         result = get_upgrade_paths_info(explorer, target_version=target, skip_target_check=True)

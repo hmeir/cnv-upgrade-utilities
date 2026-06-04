@@ -48,9 +48,8 @@ def get_version_z_depth() -> dict[str, int]:
     return _probe_version_z_depth()
 
 
-def generate_minor_paths() -> list[tuple[str, str, str]]:
+def _generate_minor_paths(version_z_depth: dict[str, int]) -> list[tuple[str, str, str]]:
     """Generate valid (source, target, expected_type) tuples based on actual API data."""
-    version_z_depth = get_version_z_depth()
     paths = []
 
     for version in SUPPORTED_VERSIONS:
@@ -79,36 +78,20 @@ def generate_minor_paths() -> list[tuple[str, str, str]]:
     return paths
 
 
-def _generate_eol_negative_paths() -> list:
+def _generate_eol_negative_paths() -> list[tuple[str, str]]:
     """Auto-generate negative tests for every EOL version."""
     paths = []
     for eol_version in sorted(EOL_VERSIONS):
-        paths.append(pytest.param(eol_version, eol_version, id=f"eol-z-stream-{eol_version}"))
+        paths.append((eol_version, eol_version))
         for supported_version in SUPPORTED_VERSIONS:
             if Version(supported_version) > Version(eol_version):
-                paths.append(
-                    pytest.param(eol_version, supported_version, id=f"eol-source-{eol_version}->{supported_version}")
-                )
+                paths.append((eol_version, supported_version))
                 break
         for supported_version in reversed(SUPPORTED_VERSIONS):
             if Version(supported_version) < Version(eol_version):
-                paths.append(
-                    pytest.param(supported_version, eol_version, id=f"eol-target-{supported_version}->{eol_version}")
-                )
+                paths.append((supported_version, eol_version))
                 break
     return paths
-
-
-NEGATIVE_PATHS = [
-    pytest.param("4.16.0", "4.16.99", id="non-existent-target-version"),
-    pytest.param("4.99", "4.99", id="non-existent-minor"),
-    pytest.param("4.20", "4.19", id="downgrade-minor"),
-    pytest.param("4.20.5", "4.20.4", id="downgrade-z-stream"),
-    pytest.param("4.16", "4.19", id="unsupported-gap"),
-    pytest.param("4.17", "4.19", id="odd-eus"),
-    pytest.param("4.20.5", "4.20.5", id="same-version"),
-    *_generate_eol_negative_paths(),
-]
 
 
 @pytest.fixture(scope="session")
@@ -116,3 +99,42 @@ def explorer():
     """Real CnvVersionExplorer session for E2E tests. Uses default URL if not overridden."""
     with CnvVersionExplorer() as exp:
         yield exp
+
+
+@pytest.fixture(scope="session")
+def version_z_depth():
+    """Lazily probe Version Explorer for z-depth data. Only runs when e2e tests execute."""
+    return get_version_z_depth()
+
+
+@pytest.fixture(scope="session")
+def minor_paths(version_z_depth: dict[str, int]) -> list[tuple[str, str, str]]:
+    """All valid upgrade paths derived from live API data."""
+    return _generate_minor_paths(version_z_depth)
+
+
+@pytest.fixture(scope="session")
+def same_minor_paths(minor_paths: list[tuple[str, str, str]]) -> list[tuple[str, str, str]]:
+    """Upgrade paths within the same minor version (z_stream, latest_z)."""
+    return [p for p in minor_paths if p[2] in ("z_stream", "latest_z")]
+
+
+@pytest.fixture(scope="session")
+def negative_paths() -> list[tuple[str, str]]:
+    """Invalid upgrade paths that should raise errors."""
+    static = [
+        ("4.16.0", "4.16.99"),
+        ("4.99", "4.99"),
+        ("4.20", "4.19"),
+        ("4.20.5", "4.20.4"),
+        ("4.16", "4.19"),
+        ("4.17", "4.19"),
+        ("4.20.5", "4.20.5"),
+    ]
+    return static + _generate_eol_negative_paths()
+
+
+@pytest.fixture(scope="session")
+def versions_with_z1(version_z_depth: dict[str, int]) -> list[str]:
+    """Supported versions that have at least z=1 released."""
+    return [v for v in SUPPORTED_VERSIONS if version_z_depth.get(v, -1) >= 1]
