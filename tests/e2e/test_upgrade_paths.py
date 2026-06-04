@@ -3,6 +3,7 @@
 import pytest
 
 from cnv_upgrade_utilities.upgrade_jobs_info import get_upgrade_jobs_info
+from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
 from cnv_upgrade_utilities.version_types import parse_minor_version, parse_patch_version
 
 from .conftest import NEGATIVE_PATHS, generate_minor_paths
@@ -152,6 +153,16 @@ class TestMixedFormatPaths:
 # ============================================================================
 # Negative tests
 # ============================================================================
+
+
+@pytest.mark.e2e
+class TestSupportedVersionCoverage:
+    """Verify every SUPPORTED_VERSIONS entry works for at least Z-stream."""
+
+    @pytest.mark.parametrize("version", SUPPORTED_VERSIONS, ids=SUPPORTED_VERSIONS)
+    def test_z_stream_works(self, explorer, version):
+        result = get_upgrade_jobs_info(explorer, source_version=version, target_version=version)
+        assert result["upgrade_type"] == "z_stream"
 
 
 @pytest.mark.e2e

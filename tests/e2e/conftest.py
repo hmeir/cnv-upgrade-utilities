@@ -3,7 +3,7 @@ import os
 import pytest
 from packaging.version import Version
 
-from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
+from cnv_upgrade_utilities.upgrade_types import EOL_VERSIONS, SUPPORTED_VERSIONS
 from utils.version_explorer import CnvVersionExplorer
 
 _SUPPORTED_SET = frozenset(SUPPORTED_VERSIONS)
@@ -39,6 +39,22 @@ def generate_minor_paths() -> list[tuple[str, str, str]]:
     return paths
 
 
+def _generate_eol_negative_paths() -> list:
+    """Auto-generate negative tests for every EOL version."""
+    paths = []
+    for eol in sorted(EOL_VERSIONS):
+        paths.append(pytest.param(eol, eol, id=f"eol-z-stream-{eol}"))
+        for sup in SUPPORTED_VERSIONS:
+            if Version(sup) > Version(eol):
+                paths.append(pytest.param(eol, sup, id=f"eol-source-{eol}->{sup}"))
+                break
+        for sup in reversed(SUPPORTED_VERSIONS):
+            if Version(sup) < Version(eol):
+                paths.append(pytest.param(sup, eol, id=f"eol-target-{sup}->{eol}"))
+                break
+    return paths
+
+
 NEGATIVE_PATHS = [
     pytest.param("4.16.0", "4.16.99", id="non-existent-target-version"),
     pytest.param("4.99", "4.99", id="non-existent-minor"),
@@ -48,9 +64,7 @@ NEGATIVE_PATHS = [
     pytest.param("4.17", "4.19", id="odd-eus"),
     pytest.param("4.20.5", "4.20.5", id="same-version"),
     pytest.param("4.19.0", "4.20", id="latest-z-cross-minor"),
-    pytest.param("4.15", "4.16", id="eol-source"),
-    pytest.param("4.12", "4.13", id="eol-target"),
-    pytest.param("4.13", "4.13", id="eol-both"),
+    *_generate_eol_negative_paths(),
 ]
 
 
