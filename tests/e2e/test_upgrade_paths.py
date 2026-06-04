@@ -193,3 +193,96 @@ class TestNegativeUpgradePaths:
     def test_invalid_path_raises(self, explorer, source_version, target_version):
         with pytest.raises((ValueError, TimeoutError)):
             get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
+
+
+@pytest.mark.e2e
+class TestNegativeWithErrorMessages:
+    """Verify specific error messages for each failure scenario."""
+
+    def test_downgrade_minor_error_message(self, explorer):
+        with pytest.raises(ValueError, match="cannot downgrade"):
+            get_upgrade_jobs_info(explorer, source_version="4.20", target_version="4.19")
+
+    def test_downgrade_z_stream_error_message(self, explorer):
+        with pytest.raises(ValueError, match="cannot downgrade within z-stream"):
+            get_upgrade_jobs_info(explorer, source_version="4.20.5", target_version="4.20.4")
+
+    def test_same_version_error_message(self, explorer):
+        with pytest.raises(ValueError, match="same version"):
+            get_upgrade_jobs_info(explorer, source_version="4.20.5", target_version="4.20.5")
+
+    def test_unsupported_gap_error_message(self, explorer):
+        with pytest.raises(ValueError, match="Unsupported upgrade"):
+            get_upgrade_jobs_info(explorer, source_version="4.16", target_version="4.19")
+
+    def test_odd_eus_error_message(self, explorer):
+        with pytest.raises(ValueError, match="EUS upgrade requires both versions to be even"):
+            get_upgrade_jobs_info(explorer, source_version="4.17", target_version="4.19")
+
+    def test_latest_z_cross_minor_error_message(self, explorer):
+        with pytest.raises(ValueError, match="latest-z upgrade requires same minor"):
+            get_upgrade_jobs_info(explorer, source_version="4.19.0", target_version="4.20")
+
+    def test_eol_source_error_message(self, explorer):
+        with pytest.raises(ValueError, match="EOL"):
+            get_upgrade_jobs_info(explorer, source_version="4.15", target_version="4.16")
+
+    def test_eol_target_error_message(self, explorer):
+        with pytest.raises(ValueError, match="EOL"):
+            get_upgrade_jobs_info(explorer, source_version="4.12", target_version="4.13")
+
+    def test_non_existent_full_target_error_message(self, explorer):
+        with pytest.raises(ValueError, match="No stable"):
+            get_upgrade_jobs_info(explorer, source_version="4.16.0", target_version="4.16.99")
+
+    def test_cross_major_downgrade_error_message(self, explorer):
+        with pytest.raises(ValueError, match="cannot downgrade"):
+            get_upgrade_jobs_info(explorer, source_version="5.0", target_version="4.22")
+
+
+@pytest.mark.e2e
+class TestCLIErrorHandling:
+    """Verify CLI commands produce clean errors (no Python tracebacks)."""
+
+    @pytest.mark.parametrize(
+        ("args", "expected_error"),
+        [
+            (["-s", "4.20", "-t", "4.19"], "Error:"),
+            (["-s", "4.15", "-t", "4.16"], "Error:"),
+            (["-s", "4.20.5", "-t", "4.20.5"], "Error:"),
+        ],
+        ids=["downgrade", "eol-source", "same-version"],
+    )
+    def test_upgrade_jobs_info_clean_error(self, args, expected_error):
+        import subprocess
+
+        result = subprocess.run(
+            ["uv", "run", "upgrade_jobs_info", *args],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 1
+        assert expected_error in result.stderr
+        assert "Traceback" not in result.stderr
+
+    @pytest.mark.parametrize(
+        ("args", "expected_error"),
+        [
+            (["-v", "4.16.99"], "Error:"),
+            (["-v", "4.13.5", "--skip-target-check"], "Error:"),
+        ],
+        ids=["non-existent-version", "eol-version"],
+    )
+    def test_release_checklist_clean_error(self, args, expected_error):
+        import subprocess
+
+        result = subprocess.run(
+            ["uv", "run", "release_checklist_upgrade_plan", *args],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 1
+        assert expected_error in result.stderr
+        assert "Traceback" not in result.stderr
