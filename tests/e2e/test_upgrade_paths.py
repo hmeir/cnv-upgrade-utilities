@@ -6,7 +6,7 @@ from cnv_upgrade_utilities.upgrade_jobs_info import get_upgrade_jobs_info
 from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
 from cnv_upgrade_utilities.version_types import parse_minor_version, parse_patch_version
 
-from .conftest import NEGATIVE_PATHS, VERSION_Z_DEPTH, generate_minor_paths
+from .conftest import NEGATIVE_PATHS, generate_minor_paths, get_version_z_depth
 
 
 def _path_id(source_version: str, target_version: str, upgrade_type: str) -> str:
@@ -172,8 +172,8 @@ class TestSupportedVersionCoverage:
 
     @pytest.mark.parametrize(
         "version",
-        [v for v in SUPPORTED_VERSIONS if VERSION_Z_DEPTH.get(v, -1) >= 1],
-        ids=[v for v in SUPPORTED_VERSIONS if VERSION_Z_DEPTH.get(v, -1) >= 1],
+        [v for v in SUPPORTED_VERSIONS if get_version_z_depth().get(v, -1) >= 1],
+        ids=[v for v in SUPPORTED_VERSIONS if get_version_z_depth().get(v, -1) >= 1],
     )
     def test_z_stream_works(self, explorer, version):
         result = get_upgrade_jobs_info(explorer, source_version=version, target_version=version)
