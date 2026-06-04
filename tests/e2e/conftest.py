@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from packaging.version import Version
 
@@ -74,9 +72,6 @@ NEGATIVE_PATHS = [
 
 @pytest.fixture(scope="session")
 def explorer():
-    """Real CnvVersionExplorer session for E2E tests."""
-    url = os.environ.get("VERSION_EXPLORER_URL")
-    if not url:
-        pytest.skip("VERSION_EXPLORER_URL not set")
-    with CnvVersionExplorer(url=url) as exp:
+    """Real CnvVersionExplorer session for E2E tests. Uses default URL if not overridden."""
+    with CnvVersionExplorer() as exp:
         yield exp

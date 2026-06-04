@@ -38,11 +38,8 @@ def fbc_repo_path():
 
 @pytest.fixture(scope="session")
 def fbc_explorer():
-    """Real CnvVersionExplorer for FBC comparison tests."""
-    url = os.environ.get("VERSION_EXPLORER_URL")
-    if not url:
-        pytest.skip("VERSION_EXPLORER_URL not set")
-    with CnvVersionExplorer(url=url) as exp:
+    """Real CnvVersionExplorer for FBC comparison tests. Uses default URL if not overridden."""
+    with CnvVersionExplorer() as exp:
         yield exp
 
 
