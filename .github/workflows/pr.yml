@@ -11,6 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
       - run: uv sync --extra dev
       - run: uv run tox -e lint
 
@@ -20,6 +22,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
       - name: Install Python versions
         run: uv python install 3.12 3.14
       - run: uv sync --extra dev
@@ -37,6 +41,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
       - run: uv sync --extra dev
       - run: uv run tox -e security
 
@@ -46,5 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
       - run: uv sync --extra dev
       - run: uv run tox -e fbc
