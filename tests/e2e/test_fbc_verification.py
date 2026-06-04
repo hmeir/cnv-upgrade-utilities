@@ -10,7 +10,7 @@ from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
 from cnv_upgrade_utilities.version_types import parse_minor_version
 from utils.version_explorer import CnvVersionExplorer
 
-from .fbc_parser import get_fbc_entry_by_version, get_fbc_versions_in_channel, parse_fbc_graph
+from .utils.fbc_parser import get_fbc_entry_by_version, get_fbc_versions_in_channel, parse_fbc_graph
 
 FBC_REPO_URL = "https://github.com/openshift-cnv/cnv-fbc.git"
 FBC_BRANCH = "stage"
