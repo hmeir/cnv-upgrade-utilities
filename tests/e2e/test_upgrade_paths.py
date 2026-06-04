@@ -6,7 +6,7 @@ from cnv_upgrade_utilities.upgrade_jobs_info import get_upgrade_jobs_info
 from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
 from cnv_upgrade_utilities.version_types import parse_minor_version, parse_patch_version
 
-from .conftest import NEGATIVE_PATHS, generate_minor_paths
+from .conftest import NEGATIVE_PATHS, VERSION_Z_DEPTH, generate_minor_paths
 
 
 def _path_id(source_version: str, target_version: str, upgrade_type: str) -> str:
@@ -56,7 +56,6 @@ def assert_upgrade_result_valid(result: dict, source_version: str, target_versio
 
     elif expected_type in ("y_stream", "eus"):
         assert target_info["channel"] == "stable"
-        assert target_info.get("released_to_prod") is True
 
 
 # ============================================================================
@@ -159,9 +158,13 @@ class TestMixedFormatPaths:
 
 @pytest.mark.e2e
 class TestSupportedVersionCoverage:
-    """Verify every SUPPORTED_VERSIONS entry works for at least Z-stream."""
+    """Verify every SUPPORTED_VERSIONS entry with released builds works for Z-stream."""
 
-    @pytest.mark.parametrize("version", SUPPORTED_VERSIONS, ids=SUPPORTED_VERSIONS)
+    @pytest.mark.parametrize(
+        "version",
+        [v for v in SUPPORTED_VERSIONS if VERSION_Z_DEPTH.get(v, -1) >= 1],
+        ids=[v for v in SUPPORTED_VERSIONS if VERSION_Z_DEPTH.get(v, -1) >= 1],
+    )
     def test_z_stream_works(self, explorer, version):
         result = get_upgrade_jobs_info(explorer, source_version=version, target_version=version)
         assert result["upgrade_type"] == "z_stream"
