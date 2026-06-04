@@ -56,6 +56,16 @@ Set the `VERSION_EXPLORER_URL` environment variable before using any tool:
 export VERSION_EXPLORER_URL="http://<your-version-explorer-host>"
 ```
 
+## Supported Versions
+
+| Supported | EOL (not tested) |
+|---|---|
+| 4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20, 4.21, 4.22 | 4.13, 4.15 |
+
+EOL versions are excluded from all upgrade paths (source and target). When a version's predecessor is EOL, Y-stream is skipped and EUS fills the gap (e.g., 4.14→4.16 EUS replaces 4.15→4.16 Y-stream since 4.15 is EOL).
+
+Version formats support both major 4 and 5 (for upcoming 5.0 release).
+
 ## Key Terms
 
 | Term | Description | Example |
@@ -90,23 +100,23 @@ The tool determines which upgrade lanes apply based on the target version's Z co
 
 | Upgrade Type | Source | Post-Upgrade Suite | Condition |
 |---|---|---|---|
-| Y Stream | Latest `4.(Y-1).z` | UTS-FULL | Always |
-| EUS | Latest `4.(Y-2).z` | UTS-Marker | Only if Y is even |
+| Y Stream | Latest `4.(Y-1).z` | UTS-FULL | Only if Y-1 is supported (not EOL) |
+| EUS | Latest `4.(Y-2).z` | UTS-Marker | Only if Y is even and Y-2 is supported |
 
 **First Maintenance (Z = 1)**
 
-| Upgrade Type | Source | Post-Upgrade Suite |
-|---|---|---|
-| Y Stream | Latest `4.(Y-1).z` | UTS-FULL |
-| Z Stream | Latest `4.Y.z` (typically `4.Y.0`) | UTS-Marker |
+| Upgrade Type | Source | Post-Upgrade Suite | Condition |
+|---|---|---|---|
+| Y Stream | Latest `4.(Y-1).z` | UTS-FULL | Only if Y-1 is supported |
+| Z Stream | Latest `4.Y.z` (typically `4.Y.0`) | UTS-Marker | Always |
 
 **Subsequent Maintenance (Z >= 2)**
 
-| Upgrade Type | Source | Post-Upgrade Suite |
-|---|---|---|
-| Y Stream | Latest `4.(Y-1).z` | UTS-Marker |
-| Z Stream | Latest `4.Y.z` | NONE |
-| Latest Z | `4.Y.0` | NONE |
+| Upgrade Type | Source | Post-Upgrade Suite | Condition |
+|---|---|---|---|
+| Y Stream | Latest `4.(Y-1).z` | UTS-Marker | Only if Y-1 is supported |
+| Z Stream | Latest `4.Y.z` | NONE | Always |
+| Latest Z | `4.Y.0` | NONE | Always |
 
 #### Target Resolution
 
