@@ -113,6 +113,13 @@ class TestDetermineUpgradeType:
         with pytest.raises(ValueError, match="EOL"):
             determine_upgrade_type("4.13", "4.13")
 
+    def test_cross_major_upgrade(self):
+        assert determine_upgrade_type("4.22", "5.0") == UpgradeType.Y_STREAM
+
+    def test_cross_major_downgrade_raises(self):
+        with pytest.raises(ValueError, match="cannot downgrade"):
+            determine_upgrade_type("5.0", "4.22")
+
 
 class TestIsEolVersion:
     @pytest.mark.parametrize(

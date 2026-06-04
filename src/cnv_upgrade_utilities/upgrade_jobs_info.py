@@ -11,6 +11,7 @@ from cnv_upgrade_utilities.version_types import (
     VersionFormat,
     detect_version_format,
     format_minor_version,
+    strip_bundle_suffix,
 )
 from utils.build_helpers import (
     channel_exists,
@@ -36,7 +37,7 @@ LOGGER = logging.getLogger(__name__)
 
 def _is_initial_release(version: str) -> bool:
     """Check if a version string represents an initial release (X.Y.0)."""
-    parts = version.rsplit(".rhel", 1)[0].split(".")
+    parts = strip_bundle_suffix(version).split(".")
     return len(parts) >= 3 and parts[2] == "0"
 
 
@@ -79,7 +80,7 @@ def _fetch_bundle_target(explorer: CnvVersionExplorer, version: str, upgrade_typ
     build_info = explorer.get_build_info(bundle_version=version)
     channels = build_info.channels
     cnv_version = build_info.cnv_version
-    base_version = cnv_version.lstrip("v").rsplit(".rhel", 1)[0]
+    base_version = strip_bundle_suffix(cnv_version.lstrip("v"))
 
     if channel_exists(channels=channels, channel=CHANNEL_STABLE):
         return extract_from_build_info(build_info=build_info, channel=CHANNEL_STABLE)
