@@ -40,5 +40,3 @@ jobs:
       - uses: astral-sh/setup-uv@v4
       - run: uv sync --extra dev
       - run: uv run pytest tests/e2e/ -m e2e -v
-        env:
-          VERSION_EXPLORER_URL: ${{ secrets.VERSION_EXPLORER_URL }}
