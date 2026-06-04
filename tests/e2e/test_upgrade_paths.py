@@ -219,9 +219,10 @@ class TestNegativeWithErrorMessages:
         with pytest.raises(ValueError, match="EUS upgrade requires both versions to be even"):
             get_upgrade_jobs_info(explorer, source_version="4.17", target_version="4.19")
 
-    def test_latest_z_cross_minor_error_message(self, explorer):
-        with pytest.raises(ValueError, match="latest-z upgrade requires same minor"):
-            get_upgrade_jobs_info(explorer, source_version="4.19.0", target_version="4.20")
+    def test_dot_zero_cross_minor_is_y_stream(self, explorer):
+        """4.19.0 → 4.20 is a valid Y-stream (source .0 doesn't force latest-z when minors differ)."""
+        result = get_upgrade_jobs_info(explorer, source_version="4.19.0", target_version="4.20")
+        assert result["upgrade_type"] == "y_stream"
 
     def test_eol_source_error_message(self, explorer):
         with pytest.raises(ValueError, match="EOL"):
@@ -238,6 +239,11 @@ class TestNegativeWithErrorMessages:
     def test_cross_major_downgrade_error_message(self, explorer):
         with pytest.raises(ValueError, match="cannot downgrade"):
             get_upgrade_jobs_info(explorer, source_version="5.0", target_version="4.22")
+
+    def test_cross_major_non_existent_target_clean_error(self, explorer):
+        """4.22 → 5.0 should produce clean error, not KeyError crash."""
+        with pytest.raises(ValueError, match="No released builds found|No stable"):
+            get_upgrade_jobs_info(explorer, source_version="4.22", target_version="5.0")
 
 
 @pytest.mark.e2e

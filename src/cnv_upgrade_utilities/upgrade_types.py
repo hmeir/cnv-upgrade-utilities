@@ -131,12 +131,10 @@ def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeT
             )
 
     if is_latest_z_source(source_version):
-        if source_minor != target_minor:
-            raise ValueError(
-                f"Unsupported upgrade: latest-z upgrade requires same minor version. "
-                f"source={source_version}, target={target_version}"
-            )
-        return UpgradeType.LATEST_Z
+        if source_minor == target_minor:
+            return UpgradeType.LATEST_Z
+        # Source is X.Y.0 but target has different minor — not a latest-z upgrade.
+        # Fall through to normal version_diff logic (could be Y-stream or EUS).
 
     version_diff = target_minor - source_minor
 

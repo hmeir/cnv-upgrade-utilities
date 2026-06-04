@@ -96,10 +96,11 @@ class CnvVersionExplorer:
     def get_released_builds(self, minor_version: str, stage: bool = False) -> list[ReleasedBuild]:
         """Fetch released builds for a minor version."""
         stage_str = "true" if stage else "false"
-        raw = self.query_with_retry(
+        result = self.query_with_retry(
             endpoint="GetReleasedBuilds",
             query_string=f"minor_version={minor_version}&stage={stage_str}",
-        )["builds"]
+        )
+        raw = result.get("builds", [])
         return [ReleasedBuild.model_validate(b) for b in raw]
 
     def get_successful_builds_by_version(
@@ -117,10 +118,11 @@ class CnvVersionExplorer:
             query_string += f"&channel={channel}"
         if stage is not None:
             query_string += f"&stage={'true' if stage else 'false'}"
-        raw = self.query_with_retry(
+        result = self.query_with_retry(
             endpoint="GetSuccessfulBuildsByVersion",
             query_string=query_string,
-        )["successful_builds"]
+        )
+        raw = result.get("successful_builds", [])
         return [SuccessfulBuild.model_validate(b) for b in raw]
 
     def get_build_info(self, bundle_version: str) -> BuildInfo:
