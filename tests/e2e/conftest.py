@@ -13,28 +13,28 @@ def generate_minor_paths() -> list[tuple[str, str, str]]:
     """Generate all valid (source, target, expected_type) tuples from SUPPORTED_VERSIONS."""
     paths = []
 
-    for v_str in SUPPORTED_VERSIONS:
-        paths.append((v_str, v_str, "z_stream"))
+    for version in SUPPORTED_VERSIONS:
+        paths.append((version, version, "z_stream"))
 
-    for v_str in SUPPORTED_VERSIONS:
-        v = Version(v_str)
-        source_str = f"{v.major}.{v.minor - 1}"
-        if source_str in _SUPPORTED_SET:
-            paths.append((source_str, v_str, "y_stream"))
+    for target_version_str in SUPPORTED_VERSIONS:
+        target = Version(target_version_str)
+        source_version_str = f"{target.major}.{target.minor - 1}"
+        if source_version_str in _SUPPORTED_SET:
+            paths.append((source_version_str, target_version_str, "y_stream"))
 
-    for v_str in SUPPORTED_VERSIONS:
-        v = Version(v_str)
-        if v.minor % 2 != 0:
+    for target_version_str in SUPPORTED_VERSIONS:
+        target = Version(target_version_str)
+        if target.minor % 2 != 0:
             continue
-        source_minor = v.minor - 2
-        if source_minor < 0:
+        eus_source_minor = target.minor - 2
+        if eus_source_minor < 0:
             continue
-        source_str = f"{v.major}.{source_minor}"
-        if source_str in _SUPPORTED_SET and source_minor % 2 == 0:
-            paths.append((source_str, v_str, "eus"))
+        eus_source_version = f"{target.major}.{eus_source_minor}"
+        if eus_source_version in _SUPPORTED_SET and eus_source_minor % 2 == 0:
+            paths.append((eus_source_version, target_version_str, "eus"))
 
-    for v_str in SUPPORTED_VERSIONS:
-        paths.append((f"{v_str}.0", v_str, "latest_z"))
+    for version in SUPPORTED_VERSIONS:
+        paths.append((f"{version}.0", version, "latest_z"))
 
     return paths
 
@@ -42,15 +42,19 @@ def generate_minor_paths() -> list[tuple[str, str, str]]:
 def _generate_eol_negative_paths() -> list:
     """Auto-generate negative tests for every EOL version."""
     paths = []
-    for eol in sorted(EOL_VERSIONS):
-        paths.append(pytest.param(eol, eol, id=f"eol-z-stream-{eol}"))
-        for sup in SUPPORTED_VERSIONS:
-            if Version(sup) > Version(eol):
-                paths.append(pytest.param(eol, sup, id=f"eol-source-{eol}->{sup}"))
+    for eol_version in sorted(EOL_VERSIONS):
+        paths.append(pytest.param(eol_version, eol_version, id=f"eol-z-stream-{eol_version}"))
+        for supported_version in SUPPORTED_VERSIONS:
+            if Version(supported_version) > Version(eol_version):
+                paths.append(
+                    pytest.param(eol_version, supported_version, id=f"eol-source-{eol_version}->{supported_version}")
+                )
                 break
-        for sup in reversed(SUPPORTED_VERSIONS):
-            if Version(sup) < Version(eol):
-                paths.append(pytest.param(sup, eol, id=f"eol-target-{sup}->{eol}"))
+        for supported_version in reversed(SUPPORTED_VERSIONS):
+            if Version(supported_version) < Version(eol_version):
+                paths.append(
+                    pytest.param(supported_version, eol_version, id=f"eol-target-{supported_version}->{eol_version}")
+                )
                 break
     return paths
 
