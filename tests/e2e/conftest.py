@@ -9,33 +9,52 @@ from .utils.expected_lanes import compute_expected_lanes
 
 _SUPPORTED_SET = frozenset(SUPPORTED_VERSIONS)
 
+_version_z_depth_cache: dict[str, int] | None = None
+
 
 def _probe_version_z_depth() -> dict[str, int]:
-    """Probe Version Explorer at collection time to find max released z per version."""
+    """Probe Version Explorer to find max z per version. Cached after first call."""
+    global _version_z_depth_cache
+    if _version_z_depth_cache is not None:
+        return _version_z_depth_cache
+
     depth = {}
-    with CnvVersionExplorer() as explorer:
+    try:
+        with CnvVersionExplorer(request_timeout=5, retry_timeout=10) as explorer:
+            for version in SUPPORTED_VERSIONS:
+                minor_version = format_minor_version(version)
+                try:
+                    builds = explorer.get_released_builds(minor_version=minor_version, stage=True)
+                except Exception:
+                    depth[version] = -1
+                    continue
+                max_z = -1
+                for build in builds:
+                    csv = build.csv_version.lstrip("v")
+                    parts = csv.split(".")
+                    if len(parts) >= 3:
+                        max_z = max(max_z, int(parts[2]))
+                depth[version] = max_z
+    except Exception:
         for version in SUPPORTED_VERSIONS:
-            minor_version = format_minor_version(version)
-            builds = explorer.get_released_builds(minor_version=minor_version, stage=True)
-            max_z = -1
-            for build in builds:
-                csv = build.csv_version.lstrip("v")
-                parts = csv.split(".")
-                if len(parts) >= 3:
-                    max_z = max(max_z, int(parts[2]))
-            depth[version] = max_z
+            depth.setdefault(version, -1)
+
+    _version_z_depth_cache = depth
     return depth
 
 
-VERSION_Z_DEPTH = _probe_version_z_depth()
+def get_version_z_depth() -> dict[str, int]:
+    """Get cached version z-depth map. Probes API on first call."""
+    return _probe_version_z_depth()
 
 
 def generate_minor_paths() -> list[tuple[str, str, str]]:
     """Generate valid (source, target, expected_type) tuples based on actual API data."""
+    version_z_depth = get_version_z_depth()
     paths = []
 
     for version in SUPPORTED_VERSIONS:
-        max_z = VERSION_Z_DEPTH.get(version, -1)
+        max_z = version_z_depth.get(version, -1)
         if max_z < 0:
             continue
 
