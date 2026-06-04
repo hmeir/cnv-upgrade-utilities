@@ -1,7 +1,9 @@
 import pytest
 
 from cnv_upgrade_utilities.upgrade_types import (
+    EOL_VERSIONS,
     SKIP_Y_STREAM_UPGRADE_MINORS,
+    SUPPORTED_VERSIONS,
     UpgradeType,
     determine_upgrade_type,
     get_applicable_upgrade_types,
@@ -39,11 +41,14 @@ class TestUpgradeTypeIsApplicableForZ:
             (UpgradeType.Y_STREAM, 1, 20, True),
             (UpgradeType.Y_STREAM, 0, 12, False),
             (UpgradeType.Y_STREAM, 0, 14, False),
+            (UpgradeType.Y_STREAM, 0, 16, False),
             (UpgradeType.EUS, 0, 20, True),
             (UpgradeType.EUS, 0, 18, True),
             (UpgradeType.EUS, 0, 19, False),
             (UpgradeType.EUS, 1, 20, False),
-            (UpgradeType.EUS, 0, 12, True),
+            (UpgradeType.EUS, 0, 12, False),
+            (UpgradeType.EUS, 0, 14, True),
+            (UpgradeType.EUS, 0, 16, True),
         ],
     )
     def test_is_applicable_for_z(self, upgrade_type, z, minor, expected):
@@ -128,10 +133,25 @@ class TestGetApplicableUpgradeTypes:
             result = get_applicable_upgrade_types(target_minor=minor, target_z=0)
             assert UpgradeType.Y_STREAM not in result
 
-    def test_z0_even_skip_minor(self):
+    def test_4_12_no_y_stream_no_eus(self):
         result = get_applicable_upgrade_types(target_minor=12, target_z=0)
         assert UpgradeType.Y_STREAM not in result
+        assert UpgradeType.EUS not in result
+
+    def test_4_14_no_y_stream_yes_eus(self):
+        result = get_applicable_upgrade_types(target_minor=14, target_z=0)
+        assert UpgradeType.Y_STREAM not in result
         assert UpgradeType.EUS in result
+
+    def test_4_16_no_y_stream_yes_eus(self):
+        result = get_applicable_upgrade_types(target_minor=16, target_z=0)
+        assert UpgradeType.Y_STREAM not in result
+        assert UpgradeType.EUS in result
+
+    def test_4_17_yes_y_stream_no_eus(self):
+        result = get_applicable_upgrade_types(target_minor=17, target_z=0)
+        assert UpgradeType.Y_STREAM in result
+        assert UpgradeType.EUS not in result
 
 
 class TestUpgradeTypeAttributes:
@@ -151,3 +171,18 @@ class TestUpgradeTypeAttributes:
     def test_latest_z_attributes(self):
         assert UpgradeType.LATEST_Z.value == "latest_z"
         assert UpgradeType.LATEST_Z.minor_offset is None
+
+
+class TestVersionConstants:
+    def test_no_overlap_supported_and_eol(self):
+        assert not set(SUPPORTED_VERSIONS) & EOL_VERSIONS
+
+    def test_skip_y_stream_includes_eol_adjacent(self):
+        assert 12 in SKIP_Y_STREAM_UPGRADE_MINORS
+        assert 14 in SKIP_Y_STREAM_UPGRADE_MINORS
+        assert 16 in SKIP_Y_STREAM_UPGRADE_MINORS
+
+    def test_skip_y_stream_excludes_normal(self):
+        assert 17 not in SKIP_Y_STREAM_UPGRADE_MINORS
+        assert 18 not in SKIP_Y_STREAM_UPGRADE_MINORS
+        assert 20 not in SKIP_Y_STREAM_UPGRADE_MINORS
