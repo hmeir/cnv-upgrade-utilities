@@ -285,12 +285,24 @@ upgrade_jobs_info -s 4.20 -t 4.20
 
 ## Contributing
 
-Contributions are welcome! Before submitting a PR:
+Contributions are welcome! Before submitting a PR, you **must** run all checks locally:
 
-1. Install dev dependencies: `uv sync --extra dev`
-2. Install pre-commit hooks: `uv run pre-commit install`
-3. Run tests: `uv run pytest`
-4. Run linting: `uv run ruff check src/ tests/`
-5. Run type checking: `uv run mypy`
+```bash
+# 1. Install dev dependencies
+uv sync --extra dev
 
-Pre-commit hooks automatically enforce code style (ruff), linting (flake8), and type checking (mypy) on every commit.
+# 2. Install pre-commit hooks
+uv run pre-commit install
+
+# 3. Run unit tests
+uv run pytest
+
+# 4. Run E2E tests (requires Version Explorer API access)
+uv run pytest -m e2e
+
+# 5. Run linting and type checking
+uv run ruff check src/ tests/
+uv run mypy
+```
+
+All unit tests and E2E tests must pass before submitting. Pre-commit hooks enforce code style (ruff), linting (flake8), and type checking (mypy) on every commit.
