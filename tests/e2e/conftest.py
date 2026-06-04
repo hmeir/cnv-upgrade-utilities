@@ -16,7 +16,7 @@ def _probe_version_z_depth() -> dict[str, int]:
     with CnvVersionExplorer() as explorer:
         for version in SUPPORTED_VERSIONS:
             minor_version = format_minor_version(version)
-            builds = explorer.get_released_builds(minor_version=minor_version, stage=False)
+            builds = explorer.get_released_builds(minor_version=minor_version, stage=True)
             max_z = -1
             for build in builds:
                 csv = build.csv_version.lstrip("v")
