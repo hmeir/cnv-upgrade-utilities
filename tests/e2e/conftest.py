@@ -2,37 +2,60 @@ import pytest
 from packaging.version import Version
 
 from cnv_upgrade_utilities.upgrade_types import EOL_VERSIONS, SUPPORTED_VERSIONS
+from cnv_upgrade_utilities.version_types import format_minor_version
 from utils.version_explorer import CnvVersionExplorer
+
+from .utils.expected_lanes import compute_expected_lanes
 
 _SUPPORTED_SET = frozenset(SUPPORTED_VERSIONS)
 
 
+def _probe_version_z_depth() -> dict[str, int]:
+    """Probe Version Explorer at collection time to find max released z per version."""
+    depth = {}
+    with CnvVersionExplorer() as explorer:
+        for version in SUPPORTED_VERSIONS:
+            minor_version = format_minor_version(version)
+            builds = explorer.get_released_builds(minor_version=minor_version, stage=False)
+            max_z = -1
+            for build in builds:
+                csv = build.csv_version.lstrip("v")
+                parts = csv.split(".")
+                if len(parts) >= 3:
+                    max_z = max(max_z, int(parts[2]))
+            depth[version] = max_z
+    return depth
+
+
+VERSION_Z_DEPTH = _probe_version_z_depth()
+
+
 def generate_minor_paths() -> list[tuple[str, str, str]]:
-    """Generate all valid (source, target, expected_type) tuples from SUPPORTED_VERSIONS."""
+    """Generate valid (source, target, expected_type) tuples based on actual API data."""
     paths = []
 
     for version in SUPPORTED_VERSIONS:
-        paths.append((version, version, "z_stream"))
-
-    for target_version_str in SUPPORTED_VERSIONS:
-        target = Version(target_version_str)
-        source_version_str = f"{target.major}.{target.minor - 1}"
-        if source_version_str in _SUPPORTED_SET:
-            paths.append((source_version_str, target_version_str, "y_stream"))
-
-    for target_version_str in SUPPORTED_VERSIONS:
-        target = Version(target_version_str)
-        if target.minor % 2 != 0:
+        max_z = VERSION_Z_DEPTH.get(version, -1)
+        if max_z < 0:
             continue
-        eus_source_minor = target.minor - 2
-        if eus_source_minor < 0:
-            continue
-        eus_source_version = f"{target.major}.{eus_source_minor}"
-        if eus_source_version in _SUPPORTED_SET and eus_source_minor % 2 == 0:
-            paths.append((eus_source_version, target_version_str, "eus"))
 
-    for version in SUPPORTED_VERSIONS:
-        paths.append((f"{version}.0", version, "latest_z"))
+        expected = compute_expected_lanes(version, z=max_z, supported_versions=SUPPORTED_VERSIONS)
+
+        if "Z stream" in expected:
+            paths.append((version, version, "z_stream"))
+
+        if "latest z" in expected:
+            paths.append((f"{version}.0", version, "latest_z"))
+
+        if "Y stream" in expected:
+            target = Version(version)
+            source_version = f"{target.major}.{target.minor - 1}"
+            paths.append((source_version, version, "y_stream"))
+
+        if "EUS" in expected:
+            target = Version(version)
+            eus_source = f"{target.major}.{target.minor - 2}"
+            paths.append((eus_source, version, "eus"))
 
     return paths
 
