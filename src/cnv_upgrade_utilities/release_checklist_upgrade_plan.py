@@ -5,7 +5,7 @@ import click
 from packaging.version import Version
 
 from cnv_upgrade_utilities.post_upgrade_suites import get_post_upgrade_suite
-from cnv_upgrade_utilities.upgrade_types import get_applicable_upgrade_types
+from cnv_upgrade_utilities.upgrade_types import get_applicable_upgrade_types, is_eol_version
 from cnv_upgrade_utilities.version_types import FULL_VERSION_TYPE
 from utils.build_helpers import (
     extract_filtered_build_info,
@@ -108,6 +108,9 @@ def get_upgrade_paths_info(
     explorer: CnvVersionExplorer, target_version: Version, skip_target_check: bool = False
 ) -> dict:
     """Get upgrade paths info for a target version."""
+    if is_eol_version(str(target_version)):
+        raise ValueError(f"Target version {target_version} is EOL and not supported for upgrade testing")
+
     target_info = fetch_target_version(
         explorer=explorer, target_version=target_version, skip_target_check=skip_target_check
     )

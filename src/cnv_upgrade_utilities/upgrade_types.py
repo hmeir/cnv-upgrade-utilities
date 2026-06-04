@@ -5,6 +5,7 @@ from enum import Enum
 from packaging.version import Version
 
 from cnv_upgrade_utilities.version_types import (
+    format_minor_version,
     is_latest_z_source,
     parse_minor_version,
     parse_patch_version,
@@ -80,6 +81,12 @@ class UpgradeType(Enum):
                 return False
 
 
+def is_eol_version(version: str) -> bool:
+    """Check if a version (X.Y format) is EOL."""
+    minor_version = format_minor_version(version, prefix="")
+    return minor_version in EOL_VERSIONS
+
+
 def is_eus_version(minor: int) -> bool:
     """Check if a minor version is EUS-eligible (even number)."""
     return minor % 2 == 0
@@ -98,6 +105,11 @@ def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeT
     Raises:
         ValueError: If the upgrade is unsupported (same version, downgrade, etc.)
     """
+    if is_eol_version(source_version):
+        raise ValueError(f"Invalid upgrade: source version {source_version} is EOL")
+    if is_eol_version(target_version):
+        raise ValueError(f"Invalid upgrade: target version {target_version} is EOL")
+
     source_minor = parse_minor_version(source_version)
     target_minor = parse_minor_version(target_version)
     source_patch = parse_patch_version(source_version)

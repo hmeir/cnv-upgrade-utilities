@@ -48,6 +48,9 @@ NEGATIVE_PATHS = [
     pytest.param("4.17", "4.19", id="odd-eus"),
     pytest.param("4.20.5", "4.20.5", id="same-version"),
     pytest.param("4.19.0", "4.20", id="latest-z-cross-minor"),
+    pytest.param("4.15", "4.16", id="eol-source"),
+    pytest.param("4.12", "4.13", id="eol-target"),
+    pytest.param("4.13", "4.13", id="eol-both"),
 ]
 
 
