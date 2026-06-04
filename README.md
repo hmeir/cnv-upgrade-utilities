@@ -37,7 +37,17 @@ uv sync --extra dev
 ### Running Tests
 
 ```bash
+# Unit tests (offline, no API access needed)
 uv run pytest
+
+# E2E tests (requires Version Explorer API access)
+uv run pytest -m e2e
+
+# FBC ground truth verification (requires API + cnv-fbc repo access)
+uv run pytest -m fbc
+
+# All tests including E2E
+uv run pytest -m "not fbc"
 ```
 
 ### Linting, Formatting, and Type Checking
