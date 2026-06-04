@@ -204,15 +204,17 @@ class TestUpgradeTypeAttributes:
 
 
 class TestVersionConstants:
+    def test_supported_versions_match_expected(self):
+        expected = ["4.12", "4.14", "4.16", "4.17", "4.18", "4.19", "4.20", "4.21", "4.22"]
+        assert SUPPORTED_VERSIONS == expected
+
+    def test_eol_versions_match_expected(self):
+        expected = {"4.13", "4.15"}
+        assert EOL_VERSIONS == expected
+
     def test_no_overlap_supported_and_eol(self):
         assert not set(SUPPORTED_VERSIONS) & EOL_VERSIONS
 
-    def test_skip_y_stream_includes_eol_adjacent(self):
-        assert 12 in SKIP_Y_STREAM_UPGRADE_MINORS
-        assert 14 in SKIP_Y_STREAM_UPGRADE_MINORS
-        assert 16 in SKIP_Y_STREAM_UPGRADE_MINORS
-
-    def test_skip_y_stream_excludes_normal(self):
-        assert 17 not in SKIP_Y_STREAM_UPGRADE_MINORS
-        assert 18 not in SKIP_Y_STREAM_UPGRADE_MINORS
-        assert 20 not in SKIP_Y_STREAM_UPGRADE_MINORS
+    def test_skip_y_stream_minors_match_expected(self):
+        expected = frozenset({12, 14, 16})
+        assert SKIP_Y_STREAM_UPGRADE_MINORS == expected
