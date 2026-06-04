@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from packaging.version import Version
+
 from cnv_upgrade_utilities.version_types import strip_bundle_suffix
 from utils.constants import CHANNEL_STABLE
 from utils.models import BuildInfo, BuildResult, ChannelInfo, ReleasedBuild, SuccessfulBuild
@@ -102,6 +104,7 @@ def find_released_source(
     minor_version: str,
     required_csv: str | None = None,
     exclude_csv: str | None = None,
+    max_csv: str | None = None,
 ) -> BuildResult:
     """Find the latest stable build released to prod for a minor version."""
     builds = explorer.get_released_builds(minor_version=minor_version, stage=False)
@@ -112,6 +115,8 @@ def find_released_source(
         if required_csv and build.csv_version != required_csv:
             continue
         if exclude_csv and build.csv_version.lstrip("v") == exclude_csv.lstrip("v"):
+            continue
+        if max_csv and Version(build.csv_version.lstrip("v")) >= Version(max_csv.lstrip("v")):
             continue
         if channel_released_to_prod(channels=build.channels, channel=CHANNEL_STABLE):
             return extract_released_build_info(build=build, channel=CHANNEL_STABLE)
