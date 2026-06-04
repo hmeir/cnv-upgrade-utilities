@@ -9,5 +9,13 @@ wheels/
 # Virtual environments
 .venv
 
+# Tox
+.tox/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+
 # Claude Code
 CLAUDE.md
