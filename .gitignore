@@ -17,5 +17,8 @@ wheels/
 .coverage.*
 htmlcov/
 
+# Snapshots
+snapshots/
+
 # Claude Code
 CLAUDE.md

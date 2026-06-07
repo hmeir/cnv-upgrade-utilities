@@ -44,7 +44,7 @@ packages = ["src/cnv_upgrade_utilities", "src/utils"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-v --tb=short -m 'not e2e and not fbc'"
+addopts = "-v --tb=short"
 markers = [
     "e2e: end-to-end tests requiring VERSION_EXPLORER_URL",
     "fbc: FBC ground truth verification requiring cnv-fbc repo access",

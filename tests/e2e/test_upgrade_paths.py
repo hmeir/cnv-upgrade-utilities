@@ -1,9 +1,13 @@
 """Structural E2E tests for upgrade path resolution against live Version Explorer API."""
 
+import logging
+
 import pytest
 
 from cnv_upgrade_utilities.upgrade_jobs_info import get_upgrade_jobs_info
 from cnv_upgrade_utilities.version_types import parse_minor_version, parse_patch_version
+
+LOGGER = logging.getLogger("cnv_e2e")
 
 
 def assert_upgrade_result_valid(result: dict, source_version: str, target_version: str, expected_type: str) -> None:
@@ -53,7 +57,9 @@ class TestMinorFormatPaths:
     """Upgrade paths using MINOR version format (4.Y)."""
 
     def test_minor_format(self, explorer, minor_paths):
-        for source_version, target_version, upgrade_type in minor_paths:
+        total = len(minor_paths)
+        for i, (source_version, target_version, upgrade_type) in enumerate(minor_paths, 1):
+            LOGGER.info("[%d/%d] minor_format: %s -> %s (%s)", i, total, source_version, target_version, upgrade_type)
             result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
             assert_upgrade_result_valid(result, source_version, target_version, upgrade_type)
 
@@ -72,7 +78,9 @@ class TestFullFormatPaths:
     """
 
     def test_full_format(self, explorer, same_minor_paths):
-        for source_version, target_version, upgrade_type in same_minor_paths:
+        total = len(same_minor_paths)
+        for i, (source_version, target_version, upgrade_type) in enumerate(same_minor_paths, 1):
+            LOGGER.info("[%d/%d] full_format: %s -> %s (%s)", i, total, source_version, target_version, upgrade_type)
             minor_result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
             source_full = minor_result["source"]["version"]
             target_full = minor_result["target"]["version"]
@@ -98,7 +106,9 @@ class TestBundleFormatPaths:
     """
 
     def test_bundle_format(self, explorer, same_minor_paths):
-        for source_version, target_version, upgrade_type in same_minor_paths:
+        total = len(same_minor_paths)
+        for i, (source_version, target_version, upgrade_type) in enumerate(same_minor_paths, 1):
+            LOGGER.info("[%d/%d] bundle_format: %s -> %s (%s)", i, total, source_version, target_version, upgrade_type)
             minor_result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
             source_bundle = minor_result["source"]["bundle_version"]
             target_bundle = minor_result["target"]["bundle_version"]
@@ -117,14 +127,18 @@ class TestMixedFormatPaths:
     """Upgrade paths with source and target in different version formats."""
 
     def test_minor_source_full_target(self, explorer, same_minor_paths):
-        for source_version, target_version, upgrade_type in same_minor_paths:
+        total = len(same_minor_paths)
+        for i, (source_version, target_version, upgrade_type) in enumerate(same_minor_paths, 1):
+            LOGGER.info("[%d/%d] minor->full: %s -> %s (%s)", i, total, source_version, target_version, upgrade_type)
             minor_result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
             target_full = minor_result["target"]["version"]
             result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_full)
             assert_upgrade_result_valid(result, source_version, target_full, upgrade_type)
 
     def test_full_source_bundle_target(self, explorer, same_minor_paths):
-        for source_version, target_version, upgrade_type in same_minor_paths:
+        total = len(same_minor_paths)
+        for i, (source_version, target_version, upgrade_type) in enumerate(same_minor_paths, 1):
+            LOGGER.info("[%d/%d] full->bundle: %s -> %s (%s)", i, total, source_version, target_version, upgrade_type)
             minor_result = get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
             source_full = minor_result["source"]["version"]
             target_bundle = minor_result["target"]["bundle_version"]
@@ -146,7 +160,9 @@ class TestSupportedVersionCoverage:
     """Verify every SUPPORTED_VERSIONS entry with released builds works for Z-stream."""
 
     def test_z_stream_works(self, explorer, versions_with_z1):
-        for version in versions_with_z1:
+        total = len(versions_with_z1)
+        for i, version in enumerate(versions_with_z1, 1):
+            LOGGER.info("[%d/%d] z_stream_coverage: %s", i, total, version)
             result = get_upgrade_jobs_info(explorer, source_version=version, target_version=version)
             assert result["upgrade_type"] == "z_stream"
 
@@ -161,7 +177,9 @@ class TestNegativeUpgradePaths:
     """Validate that invalid upgrade paths raise appropriate errors."""
 
     def test_invalid_path_raises(self, explorer, negative_paths):
-        for source_version, target_version in negative_paths:
+        total = len(negative_paths)
+        for i, (source_version, target_version) in enumerate(negative_paths, 1):
+            LOGGER.info("[%d/%d] negative: %s -> %s", i, total, source_version, target_version)
             with pytest.raises((ValueError, TimeoutError)):
                 get_upgrade_jobs_info(explorer, source_version=source_version, target_version=target_version)
 
