@@ -18,21 +18,28 @@ src/
     upgrade_types.py                   # UpgradeType enum, SUPPORTED_VERSIONS, EOL_VERSIONS
     version_types.py                   # Version parsing, Click parameter types, VersionFormat enum
     post_upgrade_suites.py             # POST_UPGRADE_SUITE_MAP, get_post_upgrade_suite()
-  utils/
-    version_explorer.py                # CnvVersionExplorer API client (cached, retries)
-    build_helpers.py                   # Build resolution: find_stable_stage_build, find_released_source
-    models.py                          # Pydantic models: ReleasedBuild, SuccessfulBuild, BuildInfo, BuildResult, ChannelInfo
-    constants.py                       # CHANNEL_STABLE, CHANNEL_CANDIDATE, DEFAULT_VERSION_EXPLORER_URL
+utils/                                 # Top-level shared package (used by both src/ and tests/)
+  version_explorer.py                  # CnvVersionExplorer API client (cached, retries)
+  build_helpers.py                     # Build resolution: find_stable_stage_build, find_released_source
+  models.py                            # Pydantic models: ReleasedBuild, SuccessfulBuild, BuildInfo, BuildResult, ChannelInfo
+  constants.py                         # CHANNEL_STABLE, CHANNEL_CANDIDATE, DEFAULT_VERSION_EXPLORER_URL
 scripts/
-  generate_upgrade_snapshots.py        # Daily snapshot generation for all supported versions
+  generate_current_testing_paths.py    # Generate upgrade-paths + release-checklist JSON/MD
 tests/
   conftest.py                          # Unit test fixtures, mock_explorer, factory functions, marker auto-deselect hook
-  e2e/conftest.py                      # E2E fixtures: session-scoped explorer, z-depth probing, path generation
+  e2e/
+    conftest.py                        # E2E fixtures: explorer, latest_z probing, path generation
+    upgrade_jobs_info/                 # E2E tests for upgrade_jobs_info (by version format)
+    release_checklist/                 # E2E tests for release_checklist_upgrade_plan
+    cli/                               # CLI subprocess error handling tests
+    fbc/                               # FBC ground truth verification tests
+    cross_validation/                   # Cross-validation: FBC vs Version Explorer API
+    utils/                             # Test helpers: expected_lanes, fbc_data, fbc_parser
 ```
 
 ## Key Components
 
-### CnvVersionExplorer (`src/utils/version_explorer.py`)
+### CnvVersionExplorer (`utils/version_explorer.py`)
 
 API client for the Version Explorer service. Context manager with connection pooling, instance-level response caching, and retry logic via `TimeoutSampler`.
 
@@ -72,7 +79,7 @@ Three version formats (supports major 4 and 5):
 
 Key functions: `detect_version_format()`, `parse_minor_version()`, `parse_patch_version()`, `parse_major_version()`, `format_minor_version()`, `strip_bundle_suffix()`, `is_latest_z_source()`.
 
-### Data Models (`src/utils/models.py`)
+### Data Models (`utils/models.py`)
 
 All are Pydantic `BaseModel`:
 - `ChannelInfo`: channel, iib, released_to_prod, in_stage, fbc_snapshot
@@ -92,7 +99,7 @@ All are Pydantic `BaseModel`:
 | EUS | UTS-Marker | - | - |
 | LATEST_Z | - | - | NONE |
 
-### Build Helpers (`src/utils/build_helpers.py`)
+### Build Helpers (`utils/build_helpers.py`)
 
 Channel checks: `channel_released_to_prod()`, `channel_in_stage()`, `channel_exists()`, `get_channel_info()`.
 
@@ -175,13 +182,13 @@ E2E/FBC tests are auto-deselected by default (via `pytest_collection_modifyitems
 
 **Unit tests** (`tests/test_*.py`): fully mocked via `mock_explorer` fixture (auto-specced `CnvVersionExplorer`). Factory functions: `make_channel_info()`, `make_released_build()`, `make_successful_build()`, `make_build_info()`.
 
-**E2E tests** (`tests/e2e/test_upgrade_paths.py`, `test_release_checklist_e2e.py`): hit live Version Explorer API. Session-scoped `explorer` fixture. Z-depth probing via `_probe_version_z_depth()` cached in module-level dict. Dynamic test path generation from API data.
+**E2E tests** (`tests/e2e/upgrade_jobs_info/`, `tests/e2e/release_checklist/`): hit live Version Explorer API. Session-scoped `explorer` fixture. `latest_z` probing via `_probe_version_latest_z()` cached in module-level dict. Dynamic test path generation from API data. Split by version format (minor, full, bundle, mixed) and by CLI command.
 
-**FBC tests** (`tests/e2e/test_fbc_upgrade_paths.py`): validate against cnv-fbc GitHub repo (file-based catalog). No API needed.
+**CLI tests** (`tests/e2e/cli/`): subprocess tests verifying both CLI commands produce clean errors (no tracebacks).
 
-**FBC verification** (`tests/e2e/test_fbc_verification.py`): detect data drift between Version Explorer API and FBC (stale stage flags, replaces/skipRange mismatches). Marked with both `e2e` and `fbc`.
+**FBC tests** (`tests/e2e/fbc/`): validate against cnv-fbc GitHub repo (file-based catalog). Tests for version coverage, upgrade lanes, EOL rejection, stage/prod consistency, channel consistency, and stale detection. Shared fixtures in `fbc/conftest.py` — single repo clone per session.
 
-**Cross-validation** (`tests/e2e/test_cross_validation.py`): compare FBC vs API data. Marked with both `e2e` and `fbc`.
+**Cross-validation** (`tests/e2e/cross_validation/`): compare FBC vs API data. Marked with both `e2e` and `fbc`.
 
 **Markers**: `e2e` (needs API), `fbc` (needs cnv-fbc repo). Configured in `pyproject.toml`.
 
@@ -197,7 +204,7 @@ E2E/FBC tests are auto-deselected by default (via `pytest_collection_modifyitems
 | `security` | bandit, pip-audit | No |
 | `fbc` | FBC ground truth verification | Public internet |
 | `e2e` | E2E tests against Version Explorer API | VPN (RH network) |
-| `generate` | Snapshot generation | VPN (RH network) |
+| `generate` | Generate current testing paths | VPN (RH network) |
 | `coverage` | Coverage report, 80% threshold | No (depends on py312, py314) |
 
 Default envlist: `lint, py312, py314, security, fbc, coverage` (no e2e or generate).
@@ -209,25 +216,27 @@ Default envlist: `lint, py312, py314, security, fbc, coverage` (no e2e or genera
 - `main.yml` — on push to main: same as PR
 - `daily.yml` — daily at 06:17 UTC + manual dispatch: FBC verification
 
-**E2E, cross-validation, and snapshot generation cannot run on GitHub Actions** — the Version Explorer API is VPN-only. Run locally with `uv run tox -e e2e` or `uv run tox -e generate`.
+**E2E, cross-validation, and current testing paths generation cannot run on GitHub Actions** — the Version Explorer API is VPN-only. Run locally with `uv run tox -e e2e` or `uv run tox -e generate`.
 
-## Snapshot Generation
+## Current Testing Paths Generation
 
 ```bash
-# Generate snapshot for all versions (output to snapshots/)
-uv run python scripts/generate_upgrade_snapshots.py
+# Generate for all versions (output to current_testing_paths/)
+uv run python scripts/generate_current_testing_paths.py
 
 # Output to stdout
-uv run python scripts/generate_upgrade_snapshots.py --stdout
+uv run python scripts/generate_current_testing_paths.py --stdout
 
 # Subset of versions
-uv run python scripts/generate_upgrade_snapshots.py --versions 4.20,4.21
+uv run python scripts/generate_current_testing_paths.py --versions 4.20,4.21
 
 # Via tox
 uv run tox -e generate
 ```
 
-Output JSON includes: `generated_at`, `supported_versions`, `z_depths`, `upgrade_paths`, `release_checklists`, `errors`.
+Outputs 4 files to `current_testing_paths/`:
+- `upgrade-paths.json` + `upgrade-paths.md` — version-keyed upgrade_jobs_info data
+- `release-checklist.json` + `release-checklist.md` — version-keyed release_checklist data with stage/prod status
 
 ## Code Style
 
@@ -242,15 +251,15 @@ Output JSON includes: `generated_at`, `supported_versions`, `z_depths`, `upgrade
 Before adding any new cross-module import, trace the full dependency chain. The import graph is:
 
 ```
-constants.py (no project imports)
-models.py (no project imports)
-version_types.py (no project imports)
-version_explorer.py -> constants, models
-build_helpers.py -> constants, models, version_explorer
-upgrade_types.py -> version_types
-post_upgrade_suites.py -> upgrade_types
-upgrade_jobs_info.py -> upgrade_types, version_types, build_helpers, constants, models, version_explorer
-release_checklist_upgrade_plan.py -> upgrade_types, version_types, build_helpers, constants, models, version_explorer, post_upgrade_suites
+utils/constants.py (no project imports)
+utils/models.py (no project imports)
+cnv_upgrade_utilities/version_types.py (no project imports)
+utils/version_explorer.py -> utils.constants, utils.models
+utils/build_helpers.py -> utils.constants, utils.models, utils.version_explorer
+cnv_upgrade_utilities/upgrade_types.py -> version_types
+cnv_upgrade_utilities/post_upgrade_suites.py -> upgrade_types
+cnv_upgrade_utilities/upgrade_jobs_info.py -> upgrade_types, version_types, utils.build_helpers, utils.constants, utils.models, utils.version_explorer
+cnv_upgrade_utilities/release_checklist_upgrade_plan.py -> upgrade_types, version_types, utils.build_helpers, utils.constants, utils.models, utils.version_explorer, post_upgrade_suites
 ```
 
 Never introduce circular imports. If module A imports from B, B must NOT import from A (directly or transitively).

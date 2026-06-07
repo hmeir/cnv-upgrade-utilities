@@ -12,7 +12,7 @@ from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
 from cnv_upgrade_utilities.version_types import parse_minor_version
 from utils.version_explorer import CnvVersionExplorer
 
-from .utils.fbc_data import FbcVersionData, clone_fbc_branch
+from ..utils.fbc_data import FbcVersionData, clone_fbc_branch
 
 yaml = pytest.importorskip("yaml", reason="pyyaml required for cross-validation tests")
 

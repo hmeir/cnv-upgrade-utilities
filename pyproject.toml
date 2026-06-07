@@ -39,11 +39,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cnv_upgrade_utilities", "src/utils"]
+packages = ["src/cnv_upgrade_utilities", "utils"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 addopts = "-v --tb=short"
 markers = [
     "e2e: end-to-end tests requiring VERSION_EXPLORER_URL",
@@ -52,7 +52,7 @@ markers = [
 
 [tool.mypy]
 python_version = "3.12"
-mypy_path = "src"
+mypy_path = "src:."
 packages = ["cnv_upgrade_utilities", "utils"]
 warn_return_any = true
 warn_unused_configs = true
@@ -66,7 +66,7 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-src = ["src"]
+src = ["src", "."]
 
 [tool.ruff.lint]
 select = [
