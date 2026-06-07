@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from packaging.version import Version
 
@@ -6,6 +8,8 @@ from cnv_upgrade_utilities.version_types import format_minor_version
 from utils.version_explorer import CnvVersionExplorer
 
 from .utils.expected_lanes import compute_expected_lanes
+
+LOGGER = logging.getLogger("cnv_e2e")
 
 _SUPPORTED_SET = frozenset(SUPPORTED_VERSIONS)
 
@@ -19,14 +23,17 @@ def _probe_version_z_depth() -> dict[str, int]:
         return _version_z_depth_cache
 
     depth = {}
+    total = len(SUPPORTED_VERSIONS)
+    LOGGER.info("Probing Version Explorer for z-depth of %d supported versions...", total)
     try:
         with CnvVersionExplorer(request_timeout=5, retry_timeout=10) as explorer:
-            for version in SUPPORTED_VERSIONS:
+            for i, version in enumerate(SUPPORTED_VERSIONS, 1):
                 minor_version = format_minor_version(version)
                 try:
                     builds = explorer.get_released_builds(minor_version=minor_version, stage=True)
                 except Exception:
                     depth[version] = -1
+                    LOGGER.info("[%d/%d] %s: probe failed", i, total, version)
                     continue
                 max_z = -1
                 for build in builds:
@@ -35,10 +42,13 @@ def _probe_version_z_depth() -> dict[str, int]:
                     if len(parts) >= 3:
                         max_z = max(max_z, int(parts[2]))
                 depth[version] = max_z
+                LOGGER.info("[%d/%d] %s: max_z=%d", i, total, version, max_z)
     except Exception:
+        LOGGER.warning("Version Explorer unreachable, marking all versions as unavailable")
         for version in SUPPORTED_VERSIONS:
             depth.setdefault(version, -1)
 
+    LOGGER.info("Z-depth probe complete: %d versions probed", len(depth))
     _version_z_depth_cache = depth
     return depth
 
@@ -75,6 +85,7 @@ def _generate_minor_paths(version_z_depth: dict[str, int]) -> list[tuple[str, st
             eus_source = f"{target.major}.{target.minor - 2}"
             paths.append((eus_source, version, "eus"))
 
+    LOGGER.info("Generated %d upgrade paths from API data", len(paths))
     return paths
 
 
@@ -131,7 +142,11 @@ def negative_paths() -> list[tuple[str, str]]:
         ("4.17", "4.19"),
         ("4.20.5", "4.20.5"),
     ]
-    return static + _generate_eol_negative_paths()
+    eol_paths = _generate_eol_negative_paths()
+    LOGGER.info(
+        "Generated %d negative paths (%d static + %d EOL)", len(static) + len(eol_paths), len(static), len(eol_paths)
+    )
+    return static + eol_paths
 
 
 @pytest.fixture(scope="session")

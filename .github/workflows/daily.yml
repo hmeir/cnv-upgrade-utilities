@@ -1,0 +1,18 @@
+name: Daily
+
+on:
+  schedule:
+    - cron: "17 6 * * *"   # Daily at 06:17 UTC
+  workflow_dispatch:        # Manual trigger
+
+jobs:
+  fbc:
+    name: "\U0001F4E6 FBC Verification"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev
+      - run: uv run tox -e fbc

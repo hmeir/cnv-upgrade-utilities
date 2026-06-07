@@ -39,6 +39,7 @@ class CnvVersionExplorer:
         self.request_timeout = request_timeout
         self.retry_timeout = retry_timeout
         self._session: requests.Session | None = None
+        self._cache: dict[tuple[str, str], Any] = {}
 
     @property
     def url(self) -> str:
@@ -55,6 +56,7 @@ class CnvVersionExplorer:
         if self._session is not None:
             self._session.close()
             self._session = None
+        self._cache.clear()
 
     def __enter__(self) -> "CnvVersionExplorer":
         return self
@@ -79,7 +81,12 @@ class CnvVersionExplorer:
             return None
 
     def query_with_retry(self, endpoint: str, query_string: str) -> Any:
-        """Execute an API query with retry logic."""
+        """Execute an API query with retry logic. Results are cached per instance."""
+        cache_key = (endpoint, query_string)
+        if cache_key in self._cache:
+            LOGGER.debug("Cache hit: %s?%s", endpoint, query_string)
+            return self._cache[cache_key]
+
         sampler = TimeoutSampler(
             wait_timeout=self.retry_timeout,
             sleep=self.request_timeout,
@@ -91,6 +98,7 @@ class CnvVersionExplorer:
         )
         for sample in sampler:
             if sample:
+                self._cache[cache_key] = sample
                 return sample
 
     def get_released_builds(self, minor_version: str, stage: bool = False) -> list[ReleasedBuild]:
