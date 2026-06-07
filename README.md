@@ -8,7 +8,7 @@ CLI tools and library for CNV (Container Native Virtualization) upgrade testing 
 
 - Python >= 3.12
 - [uv](https://docs.astral.sh/uv/) for dependency management
-- Access to the Version Explorer API (RH network / VPN) for E2E tests and snapshot generation
+- Access to the Version Explorer API (RH network / VPN) for E2E tests and current testing paths generation
 
 ## Installation
 
@@ -262,21 +262,21 @@ upgrade_jobs_info -s 4.20 -t 4.20
 
 ---
 
-### Snapshot Generation
+### Current Testing Paths Generation
 
-**Script:** `scripts/generate_upgrade_snapshots.py`
+**Script:** `scripts/generate_current_testing_paths.py`
 
-Generates a JSON snapshot of all upgrade paths and release checklists for every supported version. Useful for tracking how upgrade paths change over time.
+Generates upgrade path and release checklist data (JSON + Markdown) for every supported version. Outputs separate files per CLI command to `current_testing_paths/`.
 
 ```bash
-# Generate snapshot to snapshots/ directory
-uv run python scripts/generate_upgrade_snapshots.py
+# Generate to current_testing_paths/ directory
+uv run python scripts/generate_current_testing_paths.py
 
 # Output to stdout
-uv run python scripts/generate_upgrade_snapshots.py --stdout
+uv run python scripts/generate_current_testing_paths.py --stdout
 
 # Subset of versions
-uv run python scripts/generate_upgrade_snapshots.py --versions 4.20,4.21
+uv run python scripts/generate_current_testing_paths.py --versions 4.20,4.21
 
 # Via tox
 uv run tox -e generate

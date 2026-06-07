@@ -1,50 +1,15 @@
-"""FBC ground truth verification: compare Version Explorer data against cnv-fbc repo."""
-
-import os
-import subprocess
-import tempfile
+"""FBC channel consistency tests: compare Version Explorer data against cnv-fbc repo."""
 
 import pytest
 
+from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
+from cnv_upgrade_utilities.version_types import parse_minor_version
+
+from ..utils.fbc_parser import get_fbc_entry_by_version, get_fbc_versions_in_channel, parse_fbc_graph
+
 yaml = pytest.importorskip("yaml", reason="pyyaml required for FBC tests")
 
-from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS  # noqa: E402
-from cnv_upgrade_utilities.version_types import parse_minor_version  # noqa: E402
-from utils.version_explorer import CnvVersionExplorer  # noqa: E402
-
-from .utils.fbc_parser import get_fbc_entry_by_version, get_fbc_versions_in_channel, parse_fbc_graph  # noqa: E402
-
 pytestmark = [pytest.mark.fbc, pytest.mark.e2e]
-
-FBC_REPO_URL = "https://github.com/openshift-cnv/cnv-fbc.git"
-FBC_BRANCH = "stage"
-
-
-@pytest.fixture(scope="session")
-def fbc_repo_path():
-    """Clone or use local cnv-fbc repo."""
-    local_path = os.environ.get("CNV_FBC_REPO_PATH")
-    if local_path:
-        yield local_path
-        return
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        result = subprocess.run(
-            ["git", "clone", "--depth", "1", "--branch", FBC_BRANCH, FBC_REPO_URL, tmpdir],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if result.returncode != 0:
-            pytest.skip(f"Failed to clone cnv-fbc: {result.stderr}")
-        yield tmpdir
-
-
-@pytest.fixture(scope="session")
-def fbc_explorer():
-    """Real CnvVersionExplorer for FBC comparison tests. Uses default URL if not overridden."""
-    with CnvVersionExplorer() as exp:
-        yield exp
 
 
 class TestFbcChannelConsistency:
@@ -131,49 +96,3 @@ class TestFbcChannelConsistency:
                     f"Build {csv_version}: Version Explorer skipRange='{ve_skip_range}' "
                     f"but FBC says skipRange='{fbc_skip_range}'"
                 )
-
-
-class TestFbcStaleStageDetection:
-    """Detect stale in_stage flags by comparing against FBC version ordering."""
-
-    @pytest.mark.parametrize("minor", [parse_minor_version(v) for v in SUPPORTED_VERSIONS], ids=SUPPORTED_VERSIONS)
-    def test_no_stale_in_stage_in_stable_channel(self, fbc_explorer, fbc_repo_path, minor):
-        """
-        If a build is in_stage=True for stable channel, no newer z-stream
-        in the same stable channel should already be released_to_prod=True.
-        """
-        fbc_stable_versions = get_fbc_versions_in_channel(fbc_repo_path, minor, "stable")
-        if not fbc_stable_versions:
-            pytest.skip(f"No stable channel in FBC for v4.{minor}")
-
-        builds = fbc_explorer.get_released_builds(minor_version=f"v4.{minor}", stage=True)
-        if not builds:
-            pytest.skip(f"No released builds found for v4.{minor}")
-
-        stage_builds = []
-        prod_versions = set()
-
-        for build in builds:
-            csv_version = build.csv_version.lstrip("v")
-            for ch in build.channels:
-                if ch.channel != "stable":
-                    continue
-                if ch.in_stage and not ch.released_to_prod:
-                    stage_builds.append(csv_version)
-                if ch.released_to_prod:
-                    prod_versions.add(csv_version)
-
-        for stage_version in stage_builds:
-            stage_parts = stage_version.split(".")
-            stage_z = int(stage_parts[2]) if len(stage_parts) >= 3 else 0
-
-            for prod_version in prod_versions:
-                prod_parts = prod_version.split(".")
-                prod_z = int(prod_parts[2]) if len(prod_parts) >= 3 else 0
-
-                if prod_z > stage_z:
-                    pytest.fail(
-                        f"v4.{minor}: Stale in_stage detected — {stage_version} is marked "
-                        f"in_stage=True but {prod_version} (z={prod_z}) is already released to prod. "
-                        f"This is a Version Explorer data quality issue."
-                    )

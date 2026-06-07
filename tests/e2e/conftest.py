@@ -13,18 +13,18 @@ LOGGER = logging.getLogger("cnv_e2e")
 
 _SUPPORTED_SET = frozenset(SUPPORTED_VERSIONS)
 
-_version_z_depth_cache: dict[str, int] | None = None
+_version_latest_z_cache: dict[str, int] | None = None
 
 
-def _probe_version_z_depth() -> dict[str, int]:
+def _probe_version_latest_z() -> dict[str, int]:
     """Probe Version Explorer to find max z per version. Cached after first call."""
-    global _version_z_depth_cache
-    if _version_z_depth_cache is not None:
-        return _version_z_depth_cache
+    global _version_latest_z_cache
+    if _version_latest_z_cache is not None:
+        return _version_latest_z_cache
 
     depth = {}
     total = len(SUPPORTED_VERSIONS)
-    LOGGER.info("Probing Version Explorer for z-depth of %d supported versions...", total)
+    LOGGER.info("Probing Version Explorer for latest_z of %d supported versions...", total)
     try:
         with CnvVersionExplorer(request_timeout=5, retry_timeout=10) as explorer:
             for i, version in enumerate(SUPPORTED_VERSIONS, 1):
@@ -48,22 +48,22 @@ def _probe_version_z_depth() -> dict[str, int]:
         for version in SUPPORTED_VERSIONS:
             depth.setdefault(version, -1)
 
-    LOGGER.info("Z-depth probe complete: %d versions probed", len(depth))
-    _version_z_depth_cache = depth
+    LOGGER.info("latest_z probe complete: %d versions probed", len(depth))
+    _version_latest_z_cache = depth
     return depth
 
 
-def get_version_z_depth() -> dict[str, int]:
-    """Get cached version z-depth map. Probes API on first call."""
-    return _probe_version_z_depth()
+def get_version_latest_z() -> dict[str, int]:
+    """Get cached version latest_z map. Probes API on first call."""
+    return _probe_version_latest_z()
 
 
-def _generate_minor_paths(version_z_depth: dict[str, int]) -> list[tuple[str, str, str]]:
+def _generate_minor_paths(version_latest_z: dict[str, int]) -> list[tuple[str, str, str]]:
     """Generate valid (source, target, expected_type) tuples based on actual API data."""
     paths = []
 
     for version in SUPPORTED_VERSIONS:
-        max_z = version_z_depth.get(version, -1)
+        max_z = version_latest_z.get(version, -1)
         if max_z < 0:
             continue
 
@@ -113,15 +113,15 @@ def explorer():
 
 
 @pytest.fixture(scope="session")
-def version_z_depth():
-    """Lazily probe Version Explorer for z-depth data. Only runs when e2e tests execute."""
-    return get_version_z_depth()
+def version_latest_z():
+    """Lazily probe Version Explorer for latest_z data. Only runs when e2e tests execute."""
+    return get_version_latest_z()
 
 
 @pytest.fixture(scope="session")
-def minor_paths(version_z_depth: dict[str, int]) -> list[tuple[str, str, str]]:
+def minor_paths(version_latest_z: dict[str, int]) -> list[tuple[str, str, str]]:
     """All valid upgrade paths derived from live API data."""
-    return _generate_minor_paths(version_z_depth)
+    return _generate_minor_paths(version_latest_z)
 
 
 @pytest.fixture(scope="session")
@@ -150,6 +150,6 @@ def negative_paths() -> list[tuple[str, str]]:
 
 
 @pytest.fixture(scope="session")
-def versions_with_z1(version_z_depth: dict[str, int]) -> list[str]:
+def versions_with_z1(version_latest_z: dict[str, int]) -> list[str]:
     """Supported versions that have at least z=1 released."""
-    return [v for v in SUPPORTED_VERSIONS if version_z_depth.get(v, -1) >= 1]
+    return [v for v in SUPPORTED_VERSIONS if version_latest_z.get(v, -1) >= 1]
