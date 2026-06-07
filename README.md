@@ -1,17 +1,16 @@
 # CNV Upgrade Utilities
 
-[![CI](https://github.com/hmeir/cnv-upgrade-utilities/actions/workflows/ci.yml/badge.svg)](https://github.com/hmeir/cnv-upgrade-utilities/actions/workflows/ci.yml)
+[![Main](https://github.com/hmeir/cnv-upgrade-utilities/actions/workflows/main.yml/badge.svg)](https://github.com/hmeir/cnv-upgrade-utilities/actions/workflows/main.yml)
 
-CLI tools for CNV (Container Native Virtualization) upgrade testing and release management.
+CLI tools and library for CNV (Container Native Virtualization) upgrade testing and release management. Resolves upgrade paths, fetches build information, and generates release checklists by querying the Version Explorer API.
 
 ## Prerequisites
 
 - Python >= 3.12
-- Access to the Version Explorer API
+- [uv](https://docs.astral.sh/uv/) for dependency management
+- Access to the Version Explorer API (RH network / VPN) for E2E tests and snapshot generation
 
 ## Installation
-
-This project uses `uv` for dependency management.
 
 ### Install as a CLI tool (Recommended)
 
@@ -34,30 +33,6 @@ cd cnv-upgrade-utilities
 uv sync --extra dev
 ```
 
-### Running Tests
-
-```bash
-# Unit tests (offline, no API access needed)
-uv run pytest
-
-# E2E tests (requires Version Explorer API access)
-uv run pytest -m e2e
-
-# FBC ground truth verification (requires API + cnv-fbc repo access)
-uv run pytest -m fbc
-
-# All tests including E2E
-uv run pytest -m "not fbc"
-```
-
-### Linting, Formatting, and Type Checking
-
-```bash
-uv run ruff check src/ tests/
-uv run ruff format src/ tests/
-uv run mypy
-```
-
 ## Configuration
 
 Set the `VERSION_EXPLORER_URL` environment variable before using any tool:
@@ -66,13 +41,15 @@ Set the `VERSION_EXPLORER_URL` environment variable before using any tool:
 export VERSION_EXPLORER_URL="http://<your-version-explorer-host>"
 ```
 
+If not set, defaults to the internal RH Version Explorer instance.
+
 ## Supported Versions
 
 | Supported | EOL (not tested) |
 |---|---|
 | 4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20, 4.21, 4.22 | 4.13, 4.15 |
 
-EOL versions are excluded from all upgrade paths (source and target). When a version's predecessor is EOL, Y-stream is skipped and EUS fills the gap (e.g., 4.14→4.16 EUS replaces 4.15→4.16 Y-stream since 4.15 is EOL).
+EOL versions are excluded from all upgrade paths (source and target). When a version's predecessor is EOL, Y-stream is skipped and EUS fills the gap (e.g., 4.14->4.16 EUS replaces 4.15->4.16 Y-stream since 4.15 is EOL).
 
 Version formats support both major 4 and 5 (for upcoming 5.0 release).
 
@@ -283,6 +260,79 @@ upgrade_jobs_info -s 4.20 -t 4.20
 }
 ```
 
+---
+
+### Snapshot Generation
+
+**Script:** `scripts/generate_upgrade_snapshots.py`
+
+Generates a JSON snapshot of all upgrade paths and release checklists for every supported version. Useful for tracking how upgrade paths change over time.
+
+```bash
+# Generate snapshot to snapshots/ directory
+uv run python scripts/generate_upgrade_snapshots.py
+
+# Output to stdout
+uv run python scripts/generate_upgrade_snapshots.py --stdout
+
+# Subset of versions
+uv run python scripts/generate_upgrade_snapshots.py --versions 4.20,4.21
+
+# Via tox
+uv run tox -e generate
+```
+
+Requires Version Explorer API access (VPN).
+
+## Running Tests
+
+```bash
+# Unit tests (offline, no network)
+uv run pytest
+
+# E2E tests (requires Version Explorer API / VPN)
+uv run pytest -m e2e --log-cli-level=INFO
+
+# FBC ground truth verification (requires public internet)
+uv run pytest -m "fbc and not e2e" --log-cli-level=INFO
+
+# Cross-validation: FBC vs API (requires both)
+uv run pytest -m "e2e and fbc" --log-cli-level=INFO
+
+# All E2E + FBC tests
+uv run pytest -m "e2e or fbc" --log-cli-level=INFO
+```
+
+Use `--log-cli-level=INFO` to see `[N/M]` progress counters during E2E test loops.
+
+## Tox Environments
+
+| Environment | Description | Network |
+|------------|-------------|---------|
+| `lint` | ruff, flake8, mypy | None |
+| `py312` | Unit tests + coverage | None |
+| `py314` | Unit tests + coverage | None |
+| `security` | bandit, pip-audit | None |
+| `fbc` | FBC ground truth verification | Public internet |
+| `e2e` | E2E tests against Version Explorer | VPN |
+| `generate` | Snapshot generation | VPN |
+| `coverage` | Coverage report (80% threshold) | None |
+
+```bash
+uv run tox                # Default: lint, py312, py314, security, fbc, coverage
+uv run tox -e e2e         # E2E tests (not in default)
+uv run tox -e generate    # Snapshot generation (not in default)
+```
+
+## Linting, Formatting, and Type Checking
+
+```bash
+uv run ruff check src/ tests/ scripts/
+uv run ruff format src/ tests/ scripts/
+uv run flake8 src/ tests/ scripts/
+uv run mypy
+```
+
 ## Contributing
 
 Contributions are welcome! Before submitting a PR, you **must** run all checks locally:
@@ -295,14 +345,14 @@ uv sync --extra dev
 uv run pre-commit install
 
 # 3. Run all checks (lint, tests, security, FBC)
-tox
+uv run tox
 
-# 4. Run E2E tests (requires RH network / Version Explorer API)
-tox -e e2e
+# 4. Run E2E tests if on VPN
+uv run tox -e e2e
 
 # 5. Run a specific tox environment
-tox -e lint
-tox -e py312
+uv run tox -e lint
+uv run tox -e py312
 ```
 
 All checks must pass before submitting. Pre-commit hooks enforce code style (ruff), linting (flake8), and type checking (mypy) on every commit.
