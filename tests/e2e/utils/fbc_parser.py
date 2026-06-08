@@ -77,6 +77,22 @@ def get_fbc_latest_version_in_channel(repo_path: str | Path, minor: int, channel
     return versions[-1] if versions else None
 
 
+def parse_updated_image(repo_path: str | Path, minor: int) -> dict | None:
+    """Parse updated_image.yaml to get the latest z-stream's current channel and build."""
+    path = Path(repo_path) / f"v4.{minor}" / "updated_image.yaml"
+    if not path.exists():
+        return None
+    with open(path) as f:
+        data = yaml.safe_load(f)
+    bundle_version = data.get("hco-bundle-version", "").lstrip("v")
+    version = bundle_version.rsplit("-", 1)[0] if "-" in bundle_version else bundle_version
+    return {
+        "channel": data.get("channel"),
+        "version": version,
+        "bundle_version": bundle_version,
+    }
+
+
 def get_fbc_entry_by_version(repo_path: str | Path, minor: int, channel: str, version: str) -> dict | None:
     """Find a specific entry in a channel by version string."""
     channels = parse_fbc_graph(repo_path, minor)
