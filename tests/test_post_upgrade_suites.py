@@ -21,6 +21,8 @@ class TestGetPostUpgradeSuite:
             (UpgradeType.Z_STREAM, 2, POST_UPGRADE_SUITE_NONE),
             (UpgradeType.Z_STREAM, 5, POST_UPGRADE_SUITE_NONE),
             (UpgradeType.EUS, 0, POST_UPGRADE_SUITE_MARKER),
+            (UpgradeType.EUS, 2, POST_UPGRADE_SUITE_MARKER),
+            (UpgradeType.EUS, 5, POST_UPGRADE_SUITE_MARKER),
             (UpgradeType.LATEST_Z, 2, POST_UPGRADE_SUITE_NONE),
             (UpgradeType.LATEST_Z, 5, POST_UPGRADE_SUITE_NONE),
         ],
