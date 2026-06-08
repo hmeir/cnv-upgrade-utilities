@@ -17,8 +17,5 @@ wheels/
 .coverage.*
 htmlcov/
 
-# Generated testing paths
-current_testing_paths/
-
 # Claude Code
 CLAUDE.md
