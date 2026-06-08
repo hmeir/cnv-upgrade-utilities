@@ -20,6 +20,7 @@ POST_UPGRADE_SUITE_MAP = {
     },
     UpgradeType.EUS: {
         0: POST_UPGRADE_SUITE_MARKER,
+        2: POST_UPGRADE_SUITE_MARKER,
     },
     UpgradeType.LATEST_Z: {
         2: POST_UPGRADE_SUITE_NONE,

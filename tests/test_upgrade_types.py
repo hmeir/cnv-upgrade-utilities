@@ -50,6 +50,11 @@ class TestUpgradeTypeIsApplicableForZ:
             (UpgradeType.EUS, 0, 12, False),
             (UpgradeType.EUS, 0, 14, True),
             (UpgradeType.EUS, 0, 16, True),
+            (UpgradeType.EUS, 2, 14, True),
+            (UpgradeType.EUS, 5, 16, True),
+            (UpgradeType.EUS, 2, 20, False),
+            (UpgradeType.EUS, 2, 12, False),
+            (UpgradeType.EUS, 1, 14, False),
         ],
     )
     def test_is_applicable_for_z(self, upgrade_type, z, minor, expected):
@@ -196,6 +201,23 @@ class TestGetApplicableUpgradeTypes:
 
     def test_4_17_yes_y_stream_no_eus(self):
         result = get_applicable_upgrade_types(target_minor=17, target_z=0)
+        assert UpgradeType.Y_STREAM in result
+        assert UpgradeType.EUS not in result
+
+    def test_z2_skip_y_stream_even_minor_has_eus(self):
+        result = get_applicable_upgrade_types(target_minor=14, target_z=3)
+        assert UpgradeType.Y_STREAM not in result
+        assert UpgradeType.EUS in result
+        assert UpgradeType.Z_STREAM in result
+        assert UpgradeType.LATEST_Z in result
+
+    def test_z2_skip_y_stream_no_eus_source(self):
+        result = get_applicable_upgrade_types(target_minor=12, target_z=3)
+        assert UpgradeType.Y_STREAM not in result
+        assert UpgradeType.EUS not in result
+
+    def test_z2_y_stream_available_no_eus(self):
+        result = get_applicable_upgrade_types(target_minor=20, target_z=3)
         assert UpgradeType.Y_STREAM in result
         assert UpgradeType.EUS not in result
 

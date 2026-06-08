@@ -75,9 +75,13 @@ class UpgradeType(Enum):
             case UpgradeType.Y_STREAM:
                 return minor not in SKIP_Y_STREAM_UPGRADE_MINORS
             case UpgradeType.EUS:
-                if z != 0 or minor % 2 != 0:
+                if minor % 2 != 0:
                     return False
-                return f"4.{minor - 2}" in _SUPPORTED_VERSION_SET
+                if f"4.{minor - 2}" not in _SUPPORTED_VERSION_SET:
+                    return False
+                if z == 0:
+                    return True
+                return z >= 2 and minor in SKIP_Y_STREAM_UPGRADE_MINORS
             case _:
                 return False
 
