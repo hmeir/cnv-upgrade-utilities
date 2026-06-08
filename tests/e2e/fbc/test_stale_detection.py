@@ -1,11 +1,16 @@
-"""FBC stale stage detection tests: detect stale in_stage flags."""
+"""FBC stale stage detection tests: detect stale in_stage flags.
+
+Only checks staleness for released versions — the latest z-stream being
+developed (tracked via updated_image.yaml) is excluded since its in_stage
+state changes frequently during the build/promote cycle.
+"""
 
 import pytest
 
 from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
 from cnv_upgrade_utilities.version_types import parse_minor_version
 
-from ..utils.fbc_parser import get_fbc_versions_in_channel
+from ..utils.fbc_parser import get_fbc_versions_in_channel, parse_updated_image
 
 yaml = pytest.importorskip("yaml", reason="pyyaml required for FBC tests")
 
@@ -20,6 +25,8 @@ class TestFbcStaleStageDetection:
         """
         If a build is in_stage=True for stable channel, no newer z-stream
         in the same stable channel should already be released_to_prod=True.
+
+        Excludes the latest z-stream being developed (from updated_image.yaml).
         """
         fbc_stable_versions = get_fbc_versions_in_channel(fbc_repo_path, minor, "stable")
         if not fbc_stable_versions:
@@ -29,11 +36,17 @@ class TestFbcStaleStageDetection:
         if not builds:
             pytest.skip(f"No released builds found for v4.{minor}")
 
+        updated_image = parse_updated_image(fbc_repo_path, minor)
+        latest_z_version = updated_image["version"] if updated_image else None
+
         stage_builds = []
         prod_versions = set()
 
         for build in builds:
             csv_version = build.csv_version.lstrip("v")
+            if csv_version == latest_z_version:
+                continue
+
             for ch in build.channels:
                 if ch.channel != "stable":
                     continue
