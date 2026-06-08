@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-import re
 import subprocess
 from pathlib import Path
 
 import yaml
+
+from cnv_upgrade_utilities.version_types import parse_patch_version
+
+from .fbc_parser import _extract_version
 
 FBC_REPO_URL = "https://github.com/openshift-cnv/cnv-fbc.git"
 
@@ -21,12 +24,6 @@ def clone_fbc_branch(branch: str, target_dir: str) -> None:
     )
     if result.returncode != 0:
         raise RuntimeError(f"Failed to clone cnv-fbc branch '{branch}': {result.stderr}")
-
-
-def _extract_version(operator_name: str) -> str | None:
-    """Extract version from 'kubevirt-hyperconverged-operator.v4.20.3'."""
-    match = re.search(r"\.v?(\d+\.\d+\.\d+)$", operator_name)
-    return match.group(1) if match else None
 
 
 def _parse_channel_versions(repo_path: str | Path, minor: int, channel: str) -> set[str]:
@@ -89,7 +86,7 @@ class FbcVersionData:
         return {
             "minor": minor,
             "versions": versions,
-            "max_z": max((int(v.split(".")[2]) for v in all_versions), default=-1),
+            "max_z": max((parse_patch_version(v) for v in all_versions), default=-1),
             "latest_released": self._find_latest(versions, released=True),
             "latest_in_stage": self._find_latest(versions, released=False),
         }
@@ -104,7 +101,7 @@ class FbcVersionData:
         ]
         if not matching:
             return None
-        return max(matching, key=lambda v: int(v.split(".")[2]))
+        return max(matching, key=parse_patch_version)
 
     def get_latest_released_stable(self, minor: int) -> str | None:
         """Get latest stable version released to prod for a minor."""

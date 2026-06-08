@@ -1,5 +1,5 @@
 import pytest
-from conftest import make_channel_info, make_released_build, make_successful_build
+from factories import make_channel_info, make_released_build, make_successful_build
 
 from utils.build_helpers import (
     channel_exists,
@@ -135,7 +135,7 @@ class TestExtractReleasedBuildInfo:
 
 class TestExtractBuildInfoResult:
     def test_extract(self):
-        from conftest import make_build_info
+        from factories import make_build_info
 
         channels = [make_channel_info(channel="stable", iib="registry/iib:789")]
         bi = make_build_info(cnv_version="v4.20.3.rhel9-31", channels=channels)
@@ -145,7 +145,7 @@ class TestExtractBuildInfoResult:
         assert result.iib == "registry/iib:789"
 
     def test_strips_v_prefix_and_rhel_suffix(self):
-        from conftest import make_build_info
+        from factories import make_build_info
 
         channels = [make_channel_info(channel="stable")]
         bi = make_build_info(cnv_version="v4.20.0.rhel9-234", channels=channels)

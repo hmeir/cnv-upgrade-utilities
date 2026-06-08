@@ -6,7 +6,7 @@ import pytest
 
 from cnv_upgrade_utilities.upgrade_jobs_info import get_upgrade_jobs_info
 
-from .conftest import assert_upgrade_result_valid
+from ..utils.assertions import assert_upgrade_result_valid
 
 LOGGER = logging.getLogger("cnv_e2e")
 

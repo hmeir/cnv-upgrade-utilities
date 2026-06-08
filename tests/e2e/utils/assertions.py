@@ -1,3 +1,5 @@
+"""Shared assertion helpers for E2E tests."""
+
 from cnv_upgrade_utilities.version_types import parse_minor_version, parse_patch_version
 
 

@@ -9,7 +9,7 @@ import tempfile
 import pytest
 
 from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
-from cnv_upgrade_utilities.version_types import parse_minor_version
+from cnv_upgrade_utilities.version_types import normalize_csv_version, parse_minor_version, parse_patch_version
 from utils.version_explorer import CnvVersionExplorer
 
 from ..utils.fbc_data import FbcVersionData, clone_fbc_branch
@@ -45,12 +45,12 @@ def test_released_versions_match(cross_validation_data, version):
     }
 
     api_builds = explorer.get_released_builds(minor_version=f"v4.{minor}", stage=False)
-    api_released = {b.csv_version.lstrip("v") for b in api_builds}
+    api_released = {normalize_csv_version(b.csv_version) for b in api_builds}
 
     # API should contain the latest released versions from FBC.
     # Older versions may be purged from the API, so we only check the latest few.
     if api_released and fbc_released:
-        fbc_latest = max(fbc_released, key=lambda v: int(v.split(".")[2]))
+        fbc_latest = max(fbc_released, key=parse_patch_version)
         assert fbc_latest in api_released, f"4.{minor}: FBC latest released {fbc_latest} not found in Version Explorer"
 
 
@@ -65,10 +65,11 @@ def test_max_z_consistent(cross_validation_data, version):
     api_builds = explorer.get_released_builds(minor_version=f"v4.{minor}", stage=True)
     api_max_z = -1
     for build in api_builds:
-        csv = build.csv_version.lstrip("v")
-        parts = csv.split(".")
-        if len(parts) >= 3 and csv.startswith(f"4.{minor}."):
-            api_max_z = max(api_max_z, int(parts[2]))
+        csv = normalize_csv_version(build.csv_version)
+        if csv.startswith(f"4.{minor}."):
+            patch = parse_patch_version(csv)
+            if patch is not None:
+                api_max_z = max(api_max_z, patch)
 
     # Allow API to be ahead (more recent data), but not behind
     if fbc_max_z > api_max_z and api_max_z >= 0:

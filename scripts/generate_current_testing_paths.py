@@ -12,7 +12,7 @@ from packaging.version import Version
 from cnv_upgrade_utilities.release_checklist_upgrade_plan import get_upgrade_paths_info
 from cnv_upgrade_utilities.upgrade_jobs_info import get_upgrade_jobs_info
 from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
-from cnv_upgrade_utilities.version_types import format_minor_version
+from cnv_upgrade_utilities.version_types import format_minor_version, normalize_csv_version, parse_patch_version
 from utils.version_explorer import CnvVersionExplorer
 
 LOGGER = logging.getLogger("generate_current_testing_paths")
@@ -34,10 +34,9 @@ def probe_latest_z(explorer: CnvVersionExplorer) -> dict[str, int]:
 
         max_z = -1
         for build in builds:
-            csv = build.csv_version.lstrip("v")
-            parts = csv.split(".")
-            if len(parts) >= 3:
-                max_z = max(max_z, int(parts[2]))
+            patch = parse_patch_version(normalize_csv_version(build.csv_version))
+            if patch is not None:
+                max_z = max(max_z, patch)
         latest_z[version] = max_z
         LOGGER.info("[%d/%d] %s: latest_z=%d", i, total, version, max_z)
 

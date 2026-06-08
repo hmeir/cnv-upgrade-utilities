@@ -8,9 +8,8 @@ import pytest
 
 from utils.version_explorer import CnvVersionExplorer
 
-from ..utils.fbc_data import FbcVersionData, clone_fbc_branch
+from ..utils.fbc_data import FBC_REPO_URL, FbcVersionData, clone_fbc_branch
 
-FBC_REPO_URL = "https://github.com/openshift-cnv/cnv-fbc.git"
 FBC_BRANCH = "stage"
 
 

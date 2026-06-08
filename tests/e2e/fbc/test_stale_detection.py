@@ -8,7 +8,7 @@ state changes frequently during the build/promote cycle.
 import pytest
 
 from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
-from cnv_upgrade_utilities.version_types import parse_minor_version
+from cnv_upgrade_utilities.version_types import normalize_csv_version, parse_minor_version
 
 from ..utils.fbc_parser import get_fbc_versions_in_channel, parse_updated_image
 
@@ -43,7 +43,7 @@ class TestFbcStaleStageDetection:
         prod_versions = set()
 
         for build in builds:
-            csv_version = build.csv_version.lstrip("v")
+            csv_version = normalize_csv_version(build.csv_version)
             if csv_version == latest_z_version:
                 continue
 

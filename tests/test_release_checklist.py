@@ -1,7 +1,8 @@
 import pytest
-from conftest import make_channel_info, make_released_build, make_successful_build
+from factories import make_channel_info, make_released_build, make_successful_build
 from packaging.version import Version
 
+from cnv_upgrade_utilities.post_upgrade_suites import POST_UPGRADE_SUITE_MARKER, POST_UPGRADE_SUITE_NONE
 from cnv_upgrade_utilities.release_checklist_upgrade_plan import (
     ReleaseChecklistUpgradeEntry,
     fetch_source_version,
@@ -198,10 +199,43 @@ class TestGetUpgradePathsInfo:
         assert "EUS" in lanes
         assert "Z stream" not in lanes
 
+    def test_z2_skip_y_stream_has_eus(self, mock_explorer):
+        target_build = make_successful_build(
+            cnv_build="v4.16.5.rhel9-10",
+            iib="iib:target",
+            channel="stable",
+            released_to_prod=False,
+            in_stage=True,
+        )
+        mock_explorer.get_successful_builds_by_version.return_value = [target_build]
+
+        eus_channels = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:eus")]
+        z_channels = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:z")]
+        lz_channels = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:lz")]
+        eus_build = make_released_build(csv_version="v4.14.8", version="v4.14.8.rhel9-5", channels=eus_channels)
+        z_build = make_released_build(csv_version="v4.16.4", version="v4.16.4.rhel9-3", channels=z_channels)
+        lz_build = make_released_build(csv_version="v4.16.0", version="v4.16.0.rhel9-100", channels=lz_channels)
+
+        def released_builds_side_effect(minor_version, stage=False):
+            if minor_version == "v4.14":
+                return [eus_build]
+            elif minor_version == "v4.16":
+                return [z_build, lz_build]
+            return []
+
+        mock_explorer.get_released_builds.side_effect = released_builds_side_effect
+        result = get_upgrade_paths_info(mock_explorer, Version("4.16.5"))
+        lanes = result["upgrade_lanes"]
+        assert "Y stream" not in lanes
+        assert "EUS" in lanes
+        assert "Z stream" in lanes
+        assert "latest z" in lanes
+        assert lanes["EUS"]["post_upgrade_suite"] == POST_UPGRADE_SUITE_MARKER
+
     def test_post_upgrade_suites_correct(self, mock_explorer):
         self._setup_mocks(mock_explorer)
         result = get_upgrade_paths_info(mock_explorer, Version("4.20.2"))
         lanes = result["upgrade_lanes"]
-        assert lanes["Y stream"]["post_upgrade_suite"] == "UTS-Marker"
-        assert lanes["Z stream"]["post_upgrade_suite"] == "NONE"
-        assert lanes["latest z"]["post_upgrade_suite"] == "NONE"
+        assert lanes["Y stream"]["post_upgrade_suite"] == POST_UPGRADE_SUITE_MARKER
+        assert lanes["Z stream"]["post_upgrade_suite"] == POST_UPGRADE_SUITE_NONE
+        assert lanes["latest z"]["post_upgrade_suite"] == POST_UPGRADE_SUITE_NONE

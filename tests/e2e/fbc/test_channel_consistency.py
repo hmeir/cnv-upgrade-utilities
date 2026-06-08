@@ -10,7 +10,7 @@ import logging
 import pytest
 
 from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
-from cnv_upgrade_utilities.version_types import parse_minor_version
+from cnv_upgrade_utilities.version_types import normalize_csv_version, parse_minor_version
 
 from ..utils.fbc_parser import (
     get_fbc_entry_by_version,
@@ -50,7 +50,7 @@ class TestFbcChannelConsistency:
         updated_image = parse_updated_image(fbc_repo_path, minor)
 
         for build in builds:
-            csv_version = build.csv_version.lstrip("v")
+            csv_version = normalize_csv_version(build.csv_version)
             channel = build.current_channel
             if not channel or channel not in fbc_channels:
                 continue
@@ -97,7 +97,7 @@ class TestFbcChannelConsistency:
         seen = set()
 
         for build in builds:
-            csv_version = build.csv_version.lstrip("v")
+            csv_version = normalize_csv_version(build.csv_version)
             if csv_version in seen:
                 continue
             seen.add(csv_version)
@@ -137,7 +137,7 @@ class TestFbcChannelConsistency:
         seen = set()
 
         for build in builds:
-            csv_version = build.csv_version.lstrip("v")
+            csv_version = normalize_csv_version(build.csv_version)
             if csv_version in seen:
                 continue
             seen.add(csv_version)
