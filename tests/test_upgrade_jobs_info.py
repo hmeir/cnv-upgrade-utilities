@@ -1,5 +1,5 @@
 import pytest
-from conftest import make_build_info, make_channel_info, make_released_build, make_successful_build
+from factories import make_build_info, make_channel_info, make_released_build, make_successful_build
 
 from cnv_upgrade_utilities.upgrade_jobs_info import (
     _fetch_bundle_source,

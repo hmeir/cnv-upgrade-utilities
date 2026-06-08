@@ -7,6 +7,8 @@ from pathlib import Path
 
 import yaml
 
+from cnv_upgrade_utilities.version_types import strip_bundle_suffix
+
 
 def parse_fbc_graph(repo_path: str | Path, minor: int) -> dict[str, list[dict]]:
     """
@@ -85,7 +87,7 @@ def parse_updated_image(repo_path: str | Path, minor: int) -> dict | None:
     with open(path) as f:
         data = yaml.safe_load(f)
     bundle_version = data.get("hco-bundle-version", "").lstrip("v")
-    version = bundle_version.rsplit("-", 1)[0] if "-" in bundle_version else bundle_version
+    version = strip_bundle_suffix(bundle_version)
     return {
         "channel": data.get("channel"),
         "version": version,

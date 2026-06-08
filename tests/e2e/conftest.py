@@ -4,7 +4,7 @@ import pytest
 from packaging.version import Version
 
 from cnv_upgrade_utilities.upgrade_types import EOL_VERSIONS, SUPPORTED_VERSIONS
-from cnv_upgrade_utilities.version_types import format_minor_version
+from cnv_upgrade_utilities.version_types import format_minor_version, normalize_csv_version, parse_patch_version
 from utils.version_explorer import CnvVersionExplorer
 
 from .utils.expected_lanes import compute_expected_lanes
@@ -37,10 +37,9 @@ def _probe_version_latest_z() -> dict[str, int]:
                     continue
                 max_z = -1
                 for build in builds:
-                    csv = build.csv_version.lstrip("v")
-                    parts = csv.split(".")
-                    if len(parts) >= 3:
-                        max_z = max(max_z, int(parts[2]))
+                    patch = parse_patch_version(normalize_csv_version(build.csv_version))
+                    if patch is not None:
+                        max_z = max(max_z, patch)
                 depth[version] = max_z
                 LOGGER.info("[%d/%d] %s: max_z=%d", i, total, version, max_z)
     except Exception:

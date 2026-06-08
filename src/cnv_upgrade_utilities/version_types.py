@@ -125,6 +125,11 @@ def is_latest_z_source(source_version: str) -> bool:
     return False
 
 
+def normalize_csv_version(csv_version: str) -> str:
+    """Strip leading 'v' prefix from a CSV version string (e.g., 'v4.20.3' -> '4.20.3')."""
+    return csv_version.lstrip("v")
+
+
 def format_minor_version(version: str, prefix: str = "v") -> str:
     """Format a version string to minor version format (e.g., 'v4.20')."""
     parts = version.split(".")
