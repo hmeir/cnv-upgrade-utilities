@@ -37,6 +37,7 @@ For upgrade testing:
 | Z-stream     | `4.Y` → `4.Y`     | Upgrade within the same minor version (z-stream)                    |
 | Latest-Z     | `4.Y.0` → `4.Y`   | Upgrade from the GA build to the latest z-stream in the same minor |
 | EUS          | `4.Y` → `4.(Y+2)` | Skip one minor version; both source and target minors must be even  |
+| Gating       | `4.Y` → `4.Y`     | Candidate channel: source=candidate-prod, target=candidate-stage (scheduled CI only, `--gating` flag) |
 
 ## Supported Versions and End-of-Life
 

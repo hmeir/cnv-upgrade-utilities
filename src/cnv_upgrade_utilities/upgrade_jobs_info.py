@@ -11,6 +11,7 @@ from cnv_upgrade_utilities.version_types import (
     VersionFormat,
     detect_version_format,
     format_minor_version,
+    parse_minor_version,
     strip_bundle_suffix,
 )
 from utils.build_helpers import (
@@ -283,6 +284,59 @@ def _fetch_minor_source(explorer: CnvVersionExplorer, version: str, exclude_vers
 
 
 # ============================================================================
+# GATING mode — candidate channel builds only (MINOR format)
+# ============================================================================
+
+
+def _fetch_gating_source(builds: list[ReleasedBuild], minor_version: str) -> BuildResult:
+    """Find the latest candidate build released to prod for gating source."""
+    best: ReleasedBuild | None = None
+    for build in builds:
+        if channel_released_to_prod(channels=build.channels, channel=CHANNEL_CANDIDATE):
+            best = _keep_newer_build(current=best, candidate=build)
+    if best is None:
+        raise ValueError(f"No candidate build released to prod found for {minor_version}")
+    return extract_released_build_info(build=best, channel=CHANNEL_CANDIDATE)
+
+
+def _fetch_gating_target(builds: list[ReleasedBuild], minor_version: str) -> BuildResult:
+    """Find a candidate build in stage (not yet released to prod) for gating target."""
+    best: ReleasedBuild | None = None
+    for build in builds:
+        if channel_in_stage(channels=build.channels, channel=CHANNEL_CANDIDATE) and not channel_released_to_prod(
+            channels=build.channels, channel=CHANNEL_CANDIDATE
+        ):
+            best = _keep_newer_build(current=best, candidate=build)
+    if best is None:
+        raise ValueError(f"No candidate build in stage found for {minor_version}")
+    return extract_released_build_info(build=best, channel=CHANNEL_CANDIDATE)
+
+
+def get_gating_jobs_info(explorer: CnvVersionExplorer, target_version: str) -> dict:
+    """Get gating upgrade jobs info: candidate-prod source -> candidate-stage target."""
+    version_format = detect_version_format(version=target_version)
+    if version_format != VersionFormat.MINOR:
+        raise ValueError(f"Gating mode requires MINOR version format (X.Y), got: {target_version}")
+
+    minor_version = format_minor_version(version=target_version)
+    builds = explorer.get_released_builds(minor_version=minor_version, stage=True)
+    if not builds:
+        raise ValueError(f"No released builds found for {minor_version}")
+
+    source_info = _fetch_gating_source(builds=builds, minor_version=minor_version)
+    target_info = _fetch_gating_target(builds=builds, minor_version=minor_version)
+
+    if source_info.version == target_info.version:
+        raise ValueError(f"Gating source and target resolved to the same build: {source_info.version}")
+
+    return {
+        "upgrade_type": "gating",
+        "source": source_info.model_dump(exclude_none=True),
+        "target": target_info.model_dump(exclude_none=True),
+    }
+
+
+# ============================================================================
 # Dispatch
 # ============================================================================
 _SOURCE_FETCHERS = {
@@ -347,7 +401,7 @@ def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, tar
 @click.option(
     "-s",
     "--source-version",
-    required=True,
+    required=False,
     type=FLEXIBLE_VERSION_TYPE,
     help="Source version: 4.Y, 4.Y.Z, or 4.Y.Z.rhelR-BN (e.g., 4.19, 4.20.3, 4.20.3.rhel9-18)",
 )
@@ -358,13 +412,30 @@ def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, tar
     type=FLEXIBLE_VERSION_TYPE,
     help="Target version: 4.Y, 4.Y.Z, or 4.Y.Z.rhelR-BN (e.g., 4.20, 4.20.5, 4.20.5.rhel9-3)",
 )
-def main(source_version: str, target_version: str) -> None:
+@click.option(
+    "--gating",
+    is_flag=True,
+    default=False,
+    help="Gating mode: source=candidate released to prod, target=candidate in stage (MINOR format only)",
+)
+def main(source_version: str | None, target_version: str, gating: bool) -> None:
     try:
-        with CnvVersionExplorer() as explorer:
-            result = get_upgrade_jobs_info(
-                explorer=explorer, source_version=source_version, target_version=target_version
-            )
-            click.echo(json.dumps(result, indent=2))
+        if gating:
+            if source_version is not None:
+                source_minor = parse_minor_version(source_version)
+                target_minor = parse_minor_version(target_version)
+                if source_minor != target_minor:
+                    raise ValueError("Gating mode requires same minor version for source and target")
+            with CnvVersionExplorer() as explorer:
+                result = get_gating_jobs_info(explorer=explorer, target_version=target_version)
+        else:
+            if source_version is None:
+                raise SystemExit("Error: --source-version is required when not using --gating")
+            with CnvVersionExplorer() as explorer:
+                result = get_upgrade_jobs_info(
+                    explorer=explorer, source_version=source_version, target_version=target_version
+                )
+        click.echo(json.dumps(result, indent=2))
     except (ValueError, ConnectionError, TimeoutError) as exc:
         raise SystemExit(f"Error: {exc}") from exc
 

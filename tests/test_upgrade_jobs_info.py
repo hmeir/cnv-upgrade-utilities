@@ -6,12 +6,15 @@ from cnv_upgrade_utilities.upgrade_jobs_info import (
     _fetch_bundle_target,
     _fetch_full_source,
     _fetch_full_target,
+    _fetch_gating_source,
+    _fetch_gating_target,
     _fetch_minor_source,
     _fetch_minor_target,
     _is_initial_release,
     _requires_stable_target,
     fetch_version_info,
     format_upgrade_result,
+    get_gating_jobs_info,
     get_upgrade_jobs_info,
 )
 from cnv_upgrade_utilities.upgrade_types import UpgradeType
@@ -414,3 +417,97 @@ class TestGetUpgradeJobsInfo:
         mock_explorer.get_released_builds.return_value = [source_build]
         result = get_upgrade_jobs_info(mock_explorer, source_version="4.20.0", target_version="4.20.3")
         assert result["upgrade_type"] == "latest_z"
+
+
+class TestFetchGatingSource:
+    def test_happy_path(self):
+        channels = [make_channel_info(channel="candidate", released_to_prod=True, iib="iib:source")]
+        build = make_released_build(csv_version="v4.20.2", version="v4.20.2.rhel9-18", channels=channels)
+        result = _fetch_gating_source(builds=[build], minor_version="v4.20")
+        assert result.version == "4.20.2"
+        assert result.channel == "candidate"
+        assert result.released_to_prod is True
+
+    def test_picks_newest(self):
+        channels = [make_channel_info(channel="candidate", released_to_prod=True, iib="iib:1")]
+        older = make_released_build(csv_version="v4.20.1", version="v4.20.1.rhel9-5", channels=channels)
+        newer = make_released_build(csv_version="v4.20.2", version="v4.20.2.rhel9-18", channels=channels)
+        result = _fetch_gating_source(builds=[older, newer], minor_version="v4.20")
+        assert result.version == "4.20.2"
+
+    def test_no_candidate_prod_raises(self):
+        channels = [make_channel_info(channel="candidate", released_to_prod=False, in_stage=True)]
+        build = make_released_build(csv_version="v4.20.3", channels=channels)
+        with pytest.raises(ValueError, match="No candidate build released to prod"):
+            _fetch_gating_source(builds=[build], minor_version="v4.20")
+
+    def test_skips_non_candidate_builds(self):
+        stable_channels = [make_channel_info(channel="stable", released_to_prod=True)]
+        build = make_released_build(csv_version="v4.20.2", channels=stable_channels)
+        with pytest.raises(ValueError, match="No candidate build released to prod"):
+            _fetch_gating_source(builds=[build], minor_version="v4.20")
+
+
+class TestFetchGatingTarget:
+    def test_happy_path(self):
+        channels = [make_channel_info(channel="candidate", released_to_prod=False, in_stage=True, iib="iib:target")]
+        build = make_released_build(csv_version="v4.20.3", version="v4.20.3.rhel9-3", channels=channels)
+        result = _fetch_gating_target(builds=[build], minor_version="v4.20")
+        assert result.version == "4.20.3"
+        assert result.channel == "candidate"
+        assert result.in_stage is True
+
+    def test_picks_newest(self):
+        channels = [make_channel_info(channel="candidate", released_to_prod=False, in_stage=True, iib="iib:1")]
+        older = make_released_build(csv_version="v4.20.2", version="v4.20.2.rhel9-18", channels=channels)
+        newer = make_released_build(csv_version="v4.20.3", version="v4.20.3.rhel9-3", channels=channels)
+        result = _fetch_gating_target(builds=[older, newer], minor_version="v4.20")
+        assert result.version == "4.20.3"
+
+    def test_skips_candidate_already_on_prod(self):
+        channels = [make_channel_info(channel="candidate", released_to_prod=True, in_stage=True)]
+        build = make_released_build(csv_version="v4.20.3", channels=channels)
+        with pytest.raises(ValueError, match="No candidate build in stage"):
+            _fetch_gating_target(builds=[build], minor_version="v4.20")
+
+    def test_no_candidate_stage_raises(self):
+        channels = [make_channel_info(channel="stable", released_to_prod=True)]
+        build = make_released_build(csv_version="v4.20.3", channels=channels)
+        with pytest.raises(ValueError, match="No candidate build in stage"):
+            _fetch_gating_target(builds=[build], minor_version="v4.20")
+
+
+class TestGetGatingJobsInfo:
+    def test_happy_path(self, mock_explorer):
+        source_channels = [make_channel_info(channel="candidate", released_to_prod=True, iib="iib:source")]
+        target_channels = [
+            make_channel_info(channel="candidate", released_to_prod=False, in_stage=True, iib="iib:target")
+        ]
+        source_build = make_released_build(csv_version="v4.20.2", version="v4.20.2.rhel9-18", channels=source_channels)
+        target_build = make_released_build(csv_version="v4.20.3", version="v4.20.3.rhel9-3", channels=target_channels)
+        mock_explorer.get_released_builds.return_value = [target_build, source_build]
+
+        result = get_gating_jobs_info(mock_explorer, target_version="4.20")
+        assert result["upgrade_type"] == "gating"
+        assert result["source"]["version"] == "4.20.2"
+        assert result["source"]["channel"] == "candidate"
+        assert result["target"]["version"] == "4.20.3"
+        assert result["target"]["channel"] == "candidate"
+
+    def test_non_minor_format_raises(self, mock_explorer):
+        with pytest.raises(ValueError, match="Gating mode requires MINOR version format"):
+            get_gating_jobs_info(mock_explorer, target_version="4.20.3")
+
+    def test_no_released_builds_raises(self, mock_explorer):
+        mock_explorer.get_released_builds.return_value = []
+        with pytest.raises(ValueError, match="No released builds found"):
+            get_gating_jobs_info(mock_explorer, target_version="4.20")
+
+    def test_same_version_raises(self, mock_explorer):
+        source_channels = [make_channel_info(channel="candidate", released_to_prod=True, iib="iib:source")]
+        target_channels = [make_channel_info(channel="candidate", released_to_prod=False, in_stage=True, iib="iib:tgt")]
+        source_build = make_released_build(csv_version="v4.20.3", version="v4.20.3.rhel9-3", channels=source_channels)
+        target_build = make_released_build(csv_version="v4.20.3", version="v4.20.3.rhel9-5", channels=target_channels)
+        mock_explorer.get_released_builds.return_value = [source_build, target_build]
+        with pytest.raises(ValueError, match="Gating source and target resolved to the same build"):
+            get_gating_jobs_info(mock_explorer, target_version="4.20")
