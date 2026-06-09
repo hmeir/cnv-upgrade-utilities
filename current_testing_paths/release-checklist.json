@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-08T08:35:53.633156+00:00",
+  "generated_at": "2026-06-08T12:02:10.227788+00:00",
   "supported_versions": [
     "4.12",
     "4.14",
@@ -57,6 +57,13 @@
           "channel": "stable",
           "post_upgrade_suite": "NONE"
         },
+        "EUS": {
+          "source_version": "4.12.24",
+          "bundle_version": "4.12.24-22",
+          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149500",
+          "channel": "stable",
+          "post_upgrade_suite": "UTS-Marker"
+        },
         "latest z": {
           "source_version": "4.14.0",
           "bundle_version": "4.14.0.rhel9-2367",
@@ -83,6 +90,13 @@
           "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149686",
           "channel": "stable",
           "post_upgrade_suite": "NONE"
+        },
+        "EUS": {
+          "source_version": "4.14.19",
+          "bundle_version": "4.14.19.rhel9-22",
+          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149460",
+          "channel": "stable",
+          "post_upgrade_suite": "UTS-Marker"
         },
         "latest z": {
           "source_version": "4.16.0",
@@ -152,6 +166,13 @@
           "channel": "stable",
           "post_upgrade_suite": "NONE"
         },
+        "EUS": {
+          "source_version": "4.16.38",
+          "bundle_version": "4.16.38.rhel9-43",
+          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149686",
+          "channel": "stable",
+          "post_upgrade_suite": "NONE"
+        },
         "latest z": {
           "source_version": "4.18.0",
           "bundle_version": "4.18.0.rhel9-849",
@@ -217,6 +238,13 @@
           "source_version": "4.20.15",
           "bundle_version": "4.20.15.rhel9-38",
           "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149389",
+          "channel": "stable",
+          "post_upgrade_suite": "NONE"
+        },
+        "EUS": {
+          "source_version": "4.18.36",
+          "bundle_version": "4.18.36.rhel9-29",
+          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149387",
           "channel": "stable",
           "post_upgrade_suite": "NONE"
         },

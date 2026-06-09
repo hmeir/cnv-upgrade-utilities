@@ -81,7 +81,7 @@ class UpgradeType(Enum):
                     return False
                 if z == 0:
                     return True
-                return z >= 2 and minor in SKIP_Y_STREAM_UPGRADE_MINORS
+                return z >= 2
             case _:
                 return False
 

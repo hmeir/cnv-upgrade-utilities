@@ -21,14 +21,23 @@ class TestGetPostUpgradeSuite:
             (UpgradeType.Z_STREAM, 2, POST_UPGRADE_SUITE_NONE),
             (UpgradeType.Z_STREAM, 5, POST_UPGRADE_SUITE_NONE),
             (UpgradeType.EUS, 0, POST_UPGRADE_SUITE_MARKER),
-            (UpgradeType.EUS, 2, POST_UPGRADE_SUITE_MARKER),
-            (UpgradeType.EUS, 5, POST_UPGRADE_SUITE_MARKER),
             (UpgradeType.LATEST_Z, 2, POST_UPGRADE_SUITE_NONE),
             (UpgradeType.LATEST_Z, 5, POST_UPGRADE_SUITE_NONE),
         ],
     )
     def test_post_upgrade_suite(self, upgrade_type, z, expected):
         assert get_post_upgrade_suite(upgrade_type, z) == expected
+
+    def test_eus_z2_y1_eol_returns_marker(self):
+        assert get_post_upgrade_suite(UpgradeType.EUS, 2, minor=14) == POST_UPGRADE_SUITE_MARKER
+        assert get_post_upgrade_suite(UpgradeType.EUS, 5, minor=16) == POST_UPGRADE_SUITE_MARKER
+
+    def test_eus_z2_y1_supported_returns_none(self):
+        assert get_post_upgrade_suite(UpgradeType.EUS, 2, minor=20) == POST_UPGRADE_SUITE_NONE
+        assert get_post_upgrade_suite(UpgradeType.EUS, 5, minor=18) == POST_UPGRADE_SUITE_NONE
+
+    def test_eus_z2_without_minor_returns_marker(self):
+        assert get_post_upgrade_suite(UpgradeType.EUS, 2) == POST_UPGRADE_SUITE_MARKER
 
     def test_unmapped_returns_none_suite(self):
         assert get_post_upgrade_suite(UpgradeType.Z_STREAM, 0) == POST_UPGRADE_SUITE_NONE

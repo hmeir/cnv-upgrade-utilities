@@ -1,6 +1,6 @@
 """Post-upgrade test suite mapping and lookup."""
 
-from cnv_upgrade_utilities.upgrade_types import UpgradeType
+from cnv_upgrade_utilities.upgrade_types import SKIP_Y_STREAM_UPGRADE_MINORS, UpgradeType
 
 POST_UPGRADE_SUITE_FULL = "UTS-FULL"
 POST_UPGRADE_SUITE_MARKER = "UTS-Marker"
@@ -28,7 +28,10 @@ POST_UPGRADE_SUITE_MAP = {
 }
 
 
-def get_post_upgrade_suite(upgrade_type: UpgradeType, z: int) -> str:
+def get_post_upgrade_suite(upgrade_type: UpgradeType, z: int, minor: int | None = None) -> str:
     """Get post-upgrade suite for an upgrade type and z-stream value."""
     z_category = min(z, 2)
+    if upgrade_type == UpgradeType.EUS and z_category == 2 and minor is not None:
+        if minor not in SKIP_Y_STREAM_UPGRADE_MINORS:
+            return POST_UPGRADE_SUITE_NONE
     return POST_UPGRADE_SUITE_MAP.get(upgrade_type, {}).get(z_category, POST_UPGRADE_SUITE_NONE)

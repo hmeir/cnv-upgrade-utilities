@@ -34,11 +34,7 @@ def compute_expected_lanes(version_str: str, z: int, supported_versions: list[st
     if minor % 2 == 0:
         eus_source_version = f"{major}.{minor - 2}"
         if eus_source_version in supported and (minor - 2) % 2 == 0:
-            if z == 0:
+            if z == 0 or z >= 2:
                 lanes.add("EUS")
-            elif z >= 2:
-                previous_version = f"{major}.{minor - 1}"
-                if previous_version not in supported:
-                    lanes.add("EUS")
 
     return lanes

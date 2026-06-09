@@ -131,7 +131,9 @@ def get_upgrade_paths_info(
             build_result=fetch_source_version(
                 explorer=explorer, target_version=target_version, minor_offset=upgrade_type.minor_offset
             ),
-            post_upgrade_suite=get_post_upgrade_suite(upgrade_type=upgrade_type, z=target_version.micro),
+            post_upgrade_suite=get_post_upgrade_suite(
+                upgrade_type=upgrade_type, z=target_version.micro, minor=target_version.minor
+            ),
         ).to_dict()
         for upgrade_type in upgrade_types
     }

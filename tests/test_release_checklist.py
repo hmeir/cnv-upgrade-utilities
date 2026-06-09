@@ -147,27 +147,33 @@ class TestGetUpgradePathsInfo:
         y_channels = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:y")]
         z_channels = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:z")]
         lz_channels = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:lz")]
+        eus_channels = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:eus")]
 
         y_build = make_released_build(csv_version="v4.19.5", version="v4.19.5.rhel9-10", channels=y_channels)
         z_build = make_released_build(csv_version="v4.20.1", version="v4.20.1.rhel9-13", channels=z_channels)
         lz_build = make_released_build(csv_version="v4.20.0", version="v4.20.0.rhel9-234", channels=lz_channels)
+        eus_build = make_released_build(csv_version="v4.18.10", version="v4.18.10.rhel9-5", channels=eus_channels)
 
         def released_builds_side_effect(minor_version, stage=False):
             if minor_version == "v4.19":
                 return [y_build]
             elif minor_version == "v4.20":
                 return [z_build, lz_build]
+            elif minor_version == "v4.18":
+                return [eus_build]
             return []
 
         mock_explorer.get_released_builds.side_effect = released_builds_side_effect
 
-    def test_z2_has_y_z_latest_z(self, mock_explorer):
+    def test_z2_has_y_z_latest_z_eus(self, mock_explorer):
         self._setup_mocks(mock_explorer)
         result = get_upgrade_paths_info(mock_explorer, Version("4.20.2"))
         lanes = result["upgrade_lanes"]
         assert "Y stream" in lanes
         assert "Z stream" in lanes
         assert "latest z" in lanes
+        assert "EUS" in lanes
+        assert lanes["EUS"]["post_upgrade_suite"] == "NONE"
         assert result["target_version"] == "4.20.2"
 
     def test_z0_even_has_y_eus(self, mock_explorer):
