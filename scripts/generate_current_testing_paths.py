@@ -237,7 +237,7 @@ def main() -> None:
         upgrade_versions, upgrade_errors = generate_upgrade_paths(explorer, latest_z)
         checklist_versions, checklist_errors = generate_release_checklists(explorer, latest_z)
 
-    generated_at = datetime.now(UTC).isoformat()
+    generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     upgrade_paths_json = {
         "generated_at": generated_at,

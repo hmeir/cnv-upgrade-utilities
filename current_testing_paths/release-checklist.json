@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-08T12:02:10.227788+00:00",
+  "generated_at": "2026-06-09 07:39 UTC",
   "supported_versions": [
     "4.12",
     "4.14",
@@ -111,10 +111,10 @@
       "target_version": "4.17.49",
       "target_build_info": {
         "version": "4.17.49",
-        "bundle_version": "4.17.49.rhel9-20",
-        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1156974",
+        "bundle_version": "4.17.49.rhel9-23",
+        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1157702",
         "channel": "candidate",
-        "in_stage": false,
+        "in_stage": true,
         "released_to_prod": false
       },
       "upgrade_lanes": {
@@ -145,8 +145,8 @@
       "target_version": "4.18.37",
       "target_build_info": {
         "version": "4.18.37",
-        "bundle_version": "4.18.37.rhel9-19",
-        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1156969",
+        "bundle_version": "4.18.37.rhel9-21",
+        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1157703",
         "channel": "candidate",
         "in_stage": true,
         "released_to_prod": false
@@ -186,10 +186,10 @@
       "target_version": "4.19.26",
       "target_build_info": {
         "version": "4.19.26",
-        "bundle_version": "4.19.26.rhel9-21",
-        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1156975",
+        "bundle_version": "4.19.26.rhel9-23",
+        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1157707",
         "channel": "candidate",
-        "in_stage": false,
+        "in_stage": true,
         "released_to_prod": false
       },
       "upgrade_lanes": {
@@ -261,10 +261,10 @@
       "target_version": "4.21.9",
       "target_build_info": {
         "version": "4.21.9",
-        "bundle_version": "4.21.9.rhel9-20",
-        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1156993",
+        "bundle_version": "4.21.9.rhel9-23",
+        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1157704",
         "channel": "candidate",
-        "in_stage": false,
+        "in_stage": true,
         "released_to_prod": false
       },
       "upgrade_lanes": {
