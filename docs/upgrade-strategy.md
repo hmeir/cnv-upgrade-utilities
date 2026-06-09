@@ -90,12 +90,12 @@ Each z-level determines which upgrade types are tested and what post-upgrade sui
 **Subsequent Maintenance Releases (z >= 2)**
 
 
-| Upgrade Type    | Condition                            | Scheduled CI       | Release Checklist (BM) |
-| --------------- | ------------------------------------ | ------------------ | ---------------------- |
-| Y-stream or EUS | Y-1 supported                        | post upgrade tier2 | UTS-Marker             |
-| Z-stream        | Always                               | post upgrade tier2 | NONE                   |
-| Latest-Z        | Always                               | --                 | NONE                   |
-| EUS             | Y-1 is EOL, both even, Y-2 supported | post upgrade tier2 | UTS-Marker             |
+| Upgrade Type | Condition                | Scheduled CI       | Release Checklist (BM)                   |
+| ------------ | ------------------------ | ------------------ | ---------------------------------------- |
+| Y-stream     | Y-1 supported            | post upgrade tier2 | UTS-Marker                               |
+| Z-stream     | Always                   | post upgrade tier2 | NONE                                     |
+| Latest-Z     | Always                   | --                 | NONE                                     |
+| EUS          | Both even, Y-2 supported | post upgrade tier2 | UTS-Marker if Y-1 EOL.Otherwise - NONE. |
 
 
 When Y-stream is not applicable (predecessor is EOL), EUS fills its role as the cross-version upgrade path with UTS-Marker testing on the release checklist.
@@ -105,17 +105,17 @@ When Y-stream is not applicable (predecessor is EOL), EUS fills its role as the 
 Which upgrade types apply to each supported version (at z >= 2, where all applicable types are active):
 
 
-| Target | Y-stream        | Z-stream | Latest-Z | EUS             |
-| ------ | --------------- | -------- | -------- | --------------- |
-| 4.12   | --              | yes      | yes      | --              |
-| 4.14   | --              | yes      | yes      | yes             |
-| 4.16   | --              | yes      | yes      | yes             |
-| 4.17   | yes  | yes      | yes      | --              |
-| 4.18   | yes  | yes      | yes      | yes  |
-| 4.19   | yes  | yes      | yes      | --              |
-| 4.20   | yes  | yes      | yes      | yes  |
-| 4.21   | yes | yes      | yes      | --              |
-| 4.22   | yes  | yes      | yes      | yes  |
+| Target | Y-stream | Z-stream | Latest-Z | EUS |
+| ------ | -------- | -------- | -------- | --- |
+| 4.12   | --       | yes      | yes      | --  |
+| 4.14   | --       | yes      | yes      | yes |
+| 4.16   | --       | yes      | yes      | yes |
+| 4.17   | yes      | yes      | yes      | --  |
+| 4.18   | yes      | yes      | yes      | yes |
+| 4.19   | yes      | yes      | yes      | --  |
+| 4.20   | yes      | yes      | yes      | yes |
+| 4.21   | yes      | yes      | yes      | --  |
+| 4.22   | yes      | yes      | yes      | yes |
 
 
 Notes:
