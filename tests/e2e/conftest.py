@@ -1,4 +1,7 @@
+import json
 import logging
+from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from packaging.version import Version
@@ -13,48 +16,47 @@ LOGGER = logging.getLogger("cnv_e2e")
 
 _SUPPORTED_SET = frozenset(SUPPORTED_VERSIONS)
 
-_version_latest_z_cache: dict[str, int] | None = None
+_UPGRADE_PATHS_JSON = Path(__file__).resolve().parents[2] / "current_testing_paths" / "upgrade-paths.json"
 
 
-def _probe_version_latest_z() -> dict[str, int]:
-    """Probe Version Explorer to find max z per version. Cached after first call."""
-    global _version_latest_z_cache
-    if _version_latest_z_cache is not None:
-        return _version_latest_z_cache
-
-    depth = {}
+def _probe_latest_z(explorer: CnvVersionExplorer) -> dict[str, int]:
+    """Probe Version Explorer for the latest z-stream per supported version."""
+    latest_z: dict[str, int] = {}
     total = len(SUPPORTED_VERSIONS)
     LOGGER.info("Probing Version Explorer for latest_z of %d supported versions...", total)
-    try:
-        with CnvVersionExplorer(request_timeout=5, retry_timeout=10) as explorer:
-            for i, version in enumerate(SUPPORTED_VERSIONS, 1):
-                minor_version = format_minor_version(version)
-                try:
-                    builds = explorer.get_released_builds(minor_version=minor_version, stage=True)
-                except Exception:
-                    depth[version] = -1
-                    LOGGER.info("[%d/%d] %s: probe failed", i, total, version)
-                    continue
-                max_z = -1
-                for build in builds:
-                    patch = parse_patch_version(normalize_csv_version(build.csv_version))
-                    if patch is not None:
-                        max_z = max(max_z, patch)
-                depth[version] = max_z
-                LOGGER.info("[%d/%d] %s: max_z=%d", i, total, version, max_z)
-    except Exception:
-        LOGGER.warning("Version Explorer unreachable, marking all versions as unavailable")
-        for version in SUPPORTED_VERSIONS:
-            depth.setdefault(version, -1)
-
-    LOGGER.info("latest_z probe complete: %d versions probed", len(depth))
-    _version_latest_z_cache = depth
-    return depth
+    for i, version in enumerate(SUPPORTED_VERSIONS, 1):
+        minor_version = format_minor_version(version)
+        try:
+            builds = explorer.get_released_builds(minor_version=minor_version, stage=True)
+        except Exception:
+            latest_z[version] = -1
+            LOGGER.info("[%d/%d] %s: probe failed", i, total, version)
+            continue
+        max_z = -1
+        for build in builds:
+            patch = parse_patch_version(normalize_csv_version(build.csv_version))
+            if patch is not None:
+                max_z = max(max_z, patch)
+        latest_z[version] = max_z
+        LOGGER.info("[%d/%d] %s: max_z=%d", i, total, version, max_z)
+    return latest_z
 
 
-def get_version_latest_z() -> dict[str, int]:
-    """Get cached version latest_z map. Probes API on first call."""
-    return _probe_version_latest_z()
+def _update_json_if_changed(latest_z: dict[str, int]) -> None:
+    """Update upgrade-paths.json only if latest_z values actually changed."""
+    if _UPGRADE_PATHS_JSON.exists():
+        data = json.loads(_UPGRADE_PATHS_JSON.read_text())
+        if data.get("latest_z") == latest_z:
+            LOGGER.info("latest_z unchanged, keeping existing %s", _UPGRADE_PATHS_JSON.name)
+            return
+    else:
+        data = {"supported_versions": SUPPORTED_VERSIONS}
+
+    data["latest_z"] = latest_z
+    data["generated_at"] = datetime.now(UTC).isoformat()
+    _UPGRADE_PATHS_JSON.parent.mkdir(parents=True, exist_ok=True)
+    _UPGRADE_PATHS_JSON.write_text(json.dumps(data, indent=2, default=str) + "\n")
+    LOGGER.info("Updated %s with fresh latest_z", _UPGRADE_PATHS_JSON.name)
 
 
 def _generate_minor_paths(version_latest_z: dict[str, int]) -> list[tuple[str, str, str]]:
@@ -112,9 +114,11 @@ def explorer():
 
 
 @pytest.fixture(scope="session")
-def version_latest_z():
-    """Lazily probe Version Explorer for latest_z data. Only runs when e2e tests execute."""
-    return get_version_latest_z()
+def version_latest_z(explorer):
+    """Probe Version Explorer for fresh latest_z, update JSON if changed."""
+    latest_z = _probe_latest_z(explorer)
+    _update_json_if_changed(latest_z)
+    return latest_z
 
 
 @pytest.fixture(scope="session")
