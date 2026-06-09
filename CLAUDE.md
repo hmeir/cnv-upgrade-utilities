@@ -76,6 +76,9 @@ Format-specific fetchers dispatched via `_SOURCE_FETCHERS` / `_TARGET_FETCHERS` 
 ### Release checklist flow
 Target version -> `get_applicable_upgrade_types()` based on z-value -> iterate types -> `fetch_source_version()` for each -> `get_post_upgrade_suite()` maps to test suite -> assembled into `upgrade_lanes` dict.
 
+### Gating flow (jobs only)
+`--gating` flag bypasses `determine_upgrade_type()`. `get_gating_jobs_info()` fetches `get_released_builds(stage=True)` and scans for candidate-prod (source) and candidate-stage (target). Not part of `UpgradeType` enum — it's a channel override, not a version-diff classification. Output uses `upgrade_type: "gating"`.
+
 ### Build extraction
 API responses -> `extract_filtered_build_info()` (from SuccessfulBuild), `extract_released_build_info()` (from ReleasedBuild), `extract_from_build_info()` (from BuildInfo) -> all return `BuildResult`.
 

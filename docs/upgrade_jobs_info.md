@@ -5,10 +5,11 @@ Resolves source and target build information for CNV upgrade job execution. Give
 ## Parameters
 
 
-| Parameter              | Acceptable Formats               | Required | Description    |
-| ---------------------- | -------------------------------- | -------- | -------------- |
-| `-s, --source-version` | `X.Y`, `X.Y.Z`, `X.Y.Z.rhelR-BN` | Yes      | Source version |
-| `-t, --target-version` | `X.Y`, `X.Y.Z`, `X.Y.Z.rhelR-BN` | Yes      | Target version |
+| Parameter              | Acceptable Formats               | Required                          | Description    |
+| ---------------------- | -------------------------------- | --------------------------------- | -------------- |
+| `-s, --source-version` | `X.Y`, `X.Y.Z`, `X.Y.Z.rhelR-BN` | Yes (not required with `--gating`) | Source version |
+| `-t, --target-version` | `X.Y`, `X.Y.Z`, `X.Y.Z.rhelR-BN` | Yes                               | Target version |
+| `--gating`             | Flag                             | No                                | Gating mode: resolve source and target from candidate channel |
 
 
 Any combination of formats can be used between source and target.
@@ -42,6 +43,15 @@ The version format determines the level of resolution:
 
 **Validation**: the tool rejects same-version upgrades, downgrades, gaps > 2 minor versions, EUS with odd versions, and EOL sources/targets.
 
+### Gating Mode
+
+When `--gating` is passed, the tool resolves builds from the **candidate** channel instead of stable:
+
+- **Source**: latest candidate build released to production
+- **Target**: candidate build in stage (not yet released to production)
+- Only MINOR format (`X.Y`) is supported
+- Only `-t` is required; `-s` is optional (if provided, must be the same minor)
+
 ## Examples
 
 MINOR format (auto-resolve z-streams):
@@ -63,6 +73,12 @@ BUNDLE format (exact builds):
 
 ```bash
 upgrade_jobs_info -s 4.20.3.rhel9-31 -t 4.20.5.rhel9-3
+```
+
+Gating mode (candidate channel):
+
+```bash
+upgrade_jobs_info --gating -t 4.20
 ```
 
 ## Example Output
