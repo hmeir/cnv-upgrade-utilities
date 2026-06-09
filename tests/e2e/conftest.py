@@ -53,7 +53,7 @@ def _update_json_if_changed(latest_z: dict[str, int]) -> None:
         data = {"supported_versions": SUPPORTED_VERSIONS}
 
     data["latest_z"] = latest_z
-    data["generated_at"] = datetime.now(UTC).isoformat()
+    data["generated_at"] = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     _UPGRADE_PATHS_JSON.parent.mkdir(parents=True, exist_ok=True)
     _UPGRADE_PATHS_JSON.write_text(json.dumps(data, indent=2, default=str) + "\n")
     LOGGER.info("Updated %s with fresh latest_z", _UPGRADE_PATHS_JSON.name)
