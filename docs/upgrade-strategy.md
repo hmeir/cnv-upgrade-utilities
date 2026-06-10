@@ -34,8 +34,8 @@ For upgrade testing:
 | Upgrade Type | Source → Target   | Description                                                         |
 | :----------: | :---------------: | ------------------------------------------------------------------- |
 | Y-stream     | `4.Y` → `4.(Y+1)` | Upgrade to the next minor version                                   |
-| Z-stream     | `4.Y` → `4.Y`     | Upgrade within the same minor version (z-stream)                    |
-| Latest-Z     | `4.Y.0` → `4.Y`   | Upgrade from the GA build to the latest z-stream in the same minor |
+| Z-stream     | `4.Y.Z` → `4.Y.(Z+1)`     | Upgrade within the same minor version (z-stream)                    |
+| Latest-Z     | `4.Y.0` → `4.Y.(latest)`   | Upgrade from the GA build to the latest z-stream in the same minor |
 | EUS          | `4.Y` → `4.(Y+2)` | Skip one minor version; both source and target minors must be even  |
 
 ## Supported Versions and End-of-Life
