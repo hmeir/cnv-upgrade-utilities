@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from packaging.version import Version
 
-from cnv_upgrade_utilities.upgrade_types import EOL_VERSIONS, SUPPORTED_VERSIONS
+from cnv_upgrade_utilities.upgrade_types import CROSS_MAJOR_Y_STREAM_SOURCES, EOL_VERSIONS, SUPPORTED_VERSIONS
 from cnv_upgrade_utilities.version_types import format_minor_version, normalize_csv_version, parse_patch_version
 from utils.version_explorer import CnvVersionExplorer
 
@@ -43,15 +43,16 @@ def _probe_latest_z(explorer: CnvVersionExplorer) -> dict[str, int]:
 
 
 def _update_json_if_changed(latest_z: dict[str, int]) -> None:
-    """Update upgrade-paths.json only if latest_z values actually changed."""
+    """Update upgrade-paths.json only if latest_z or supported_versions changed."""
     if _UPGRADE_PATHS_JSON.exists():
         data = json.loads(_UPGRADE_PATHS_JSON.read_text())
-        if data.get("latest_z") == latest_z:
+        if data.get("latest_z") == latest_z and data.get("supported_versions") == SUPPORTED_VERSIONS:
             LOGGER.info("latest_z unchanged, keeping existing %s", _UPGRADE_PATHS_JSON.name)
             return
     else:
-        data = {"supported_versions": SUPPORTED_VERSIONS}
+        data = {}
 
+    data["supported_versions"] = SUPPORTED_VERSIONS
     data["latest_z"] = latest_z
     data["generated_at"] = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     _UPGRADE_PATHS_JSON.parent.mkdir(parents=True, exist_ok=True)
@@ -76,7 +77,12 @@ def _generate_minor_paths(version_latest_z: dict[str, int]) -> list[tuple[str, s
         if "latest z" in expected:
             paths.append((f"{version}.0", version, "latest_z"))
 
-        if "Y stream" in expected:
+        cross_major_sources = CROSS_MAJOR_Y_STREAM_SOURCES.get(version, [])
+        if cross_major_sources:
+            for src in cross_major_sources:
+                if f"Y stream ({src})" in expected:
+                    paths.append((src, version, "y_stream"))
+        elif "Y stream" in expected:
             target = Version(version)
             source_version = f"{target.major}.{target.minor - 1}"
             paths.append((source_version, version, "y_stream"))

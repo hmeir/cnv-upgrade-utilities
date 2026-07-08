@@ -31,19 +31,20 @@ For upgrade testing:
 
 ## Supported Upgrade Types
 
-| Upgrade Type | Source → Target   | Description                                                         |
-| :----------: | :---------------: | ------------------------------------------------------------------- |
-| Y-stream     | `4.Y` → `4.(Y+1)` | Upgrade to the next minor version                                   |
-| Z-stream     | `4.Y` → `4.Y`     | Upgrade within the same minor version (z-stream)                    |
-| Latest-Z     | `4.Y.0` → `4.Y`   | Upgrade from the GA build to the latest z-stream in the same minor |
-| EUS          | `4.Y` → `4.(Y+2)` | Skip one minor version; both source and target minors must be even  |
+| Upgrade Type | Source → Target    | Description                                                         |
+| :----------: | :----------------: | ------------------------------------------------------------------- |
+| Y-stream     | `X.Y` → `X.(Y+1)` | Upgrade to the next minor version                                   |
+| Y-stream     | `4.Y` → `5.0`     | Cross-major upgrade (dedicated paths only)                          |
+| Z-stream     | `X.Y` → `X.Y`     | Upgrade within the same minor version (z-stream)                    |
+| Latest-Z     | `X.Y.0` → `X.Y`   | Upgrade from the GA build to the latest z-stream in the same minor |
+| EUS          | `X.Y` → `X.(Y+2)` | Skip one minor version; both source and target minors must be even  |
 
 ## Supported Versions and End-of-Life
 
 
-| Supported                                            | EOL (not tested) |
-| :--------------------------------------------------: | :--------------: |
-| 4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20, 4.21, 4.22 | 4.13, 4.15       |
+| Supported                                                          | EOL (not tested) |
+| :----------------------------------------------------------------: | :--------------: |
+| 4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20, 4.21, 4.22, 4.23, 5.0 | 4.13, 4.15       |
 
 
 **EOL impact:**
@@ -96,17 +97,19 @@ When Y-stream is not applicable (predecessor is EOL), EUS fills its role as the 
 Which upgrade types apply to each supported version (at z >= 2, where all applicable types are active):
 
 
-| Target | Y-stream | Z-stream | Latest-Z | EUS |
-| :----: | :------: | :------: | :------: | :-: |
-| 4.12   | --       | yes      | yes      | --  |
-| 4.14   | --       | yes      | yes      | yes |
-| 4.16   | --       | yes      | yes      | yes |
-| 4.17   | yes      | yes      | yes      | --  |
-| 4.18   | yes      | yes      | yes      | yes |
-| 4.19   | yes      | yes      | yes      | --  |
-| 4.20   | yes      | yes      | yes      | yes |
-| 4.21   | yes      | yes      | yes      | --  |
-| 4.22   | yes      | yes      | yes      | yes |
+| Target | Y-stream        | Z-stream | Latest-Z | EUS |
+| :----: | :-------------: | :------: | :------: | :-: |
+| 4.12   | --              | yes      | yes      | --  |
+| 4.14   | --              | yes      | yes      | yes |
+| 4.16   | --              | yes      | yes      | yes |
+| 4.17   | yes             | yes      | yes      | --  |
+| 4.18   | yes             | yes      | yes      | yes |
+| 4.19   | yes             | yes      | yes      | --  |
+| 4.20   | yes             | yes      | yes      | yes |
+| 4.21   | yes             | yes      | yes      | --  |
+| 4.22   | yes             | yes      | yes      | yes |
+| 4.23   | yes             | yes      | yes      | --  |
+| 5.0    | yes (4.22)      | yes      | yes      | --  |
 
 
 Notes:
@@ -114,6 +117,8 @@ Notes:
 - 4.12: no Y-stream (4.11 not supported), no EUS (4.10 not supported)
 - 4.14: no Y-stream (4.13 is EOL), EUS from 4.12 fills the cross-version gap
 - 4.16: no Y-stream (4.15 is EOL), EUS from 4.14 fills the cross-version gap
+- 4.23: Y-stream from 4.22, developed in parallel with 5.0
+- 5.0: Y-stream from 4.22 (cross-major), not EUS
 - EUS only between even-numbered versions
 - Z-stream and Latest-Z require z >= 1 and z >= 2 respectively
 

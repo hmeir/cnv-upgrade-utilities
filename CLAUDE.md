@@ -84,18 +84,21 @@ API responses -> `extract_filtered_build_info()` (from SuccessfulBuild), `extrac
 - **`csv_version` has `v` prefix, `cnv_build` does not.** Use `normalize_csv_version()` from `version_types.py` in test code. Production code handles this internally in the `extract_*` functions.
 - **Bundle suffix stripping** — always use `strip_bundle_suffix()`, never ad-hoc `rsplit("-", 1)[0]`. The production function handles both `.rhel` and `-` suffixes.
 - **Channel lifecycle** — `in_stage` and `released_to_prod` can both be `True` simultaneously. A build stays in stage after being released to prod.
-- **`SKIP_Y_STREAM_UPGRADE_MINORS`** is computed at import time from `SUPPORTED_VERSIONS` and `EOL_VERSIONS`. No runtime recalculation.
+- **`SKIP_Y_STREAM_VERSIONS`** is computed at import time from `SUPPORTED_VERSIONS`, `EOL_VERSIONS`, `_BLOCKED_Y_STREAM_TARGETS`, and `CROSS_MAJOR_Y_STREAM_SOURCES`. No runtime recalculation.
 - **`tests/e2e/utils/expected_lanes.py`** intentionally reimplements version logic independently for test verification. Do NOT refactor it to use production code — that defeats its purpose.
 - **Factory functions** live in `tests/factories.py`, not `tests/conftest.py`. Use `CHANNEL_STABLE` and `TEST_IIB` constants for defaults.
 
 ## Version Management
 
 ```python
-SUPPORTED_VERSIONS = ["4.12", "4.14", "4.16", "4.17", "4.18", "4.19", "4.20", "4.21", "4.22"]
+SUPPORTED_VERSIONS = ["4.12", "4.14", "4.16", "4.17", "4.18", "4.19", "4.20", "4.21", "4.22", "4.23", "5.0"]
 EOL_VERSIONS = frozenset({"4.13", "4.15"})
+CROSS_MAJOR_Y_STREAM_SOURCES = {"5.0": ["4.22"]}
+_BLOCKED_Y_STREAM_TARGETS = frozenset()
+_NON_EUS_VERSIONS = frozenset({"5.0"})
 ```
 
-**When updating versions**: modify `SUPPORTED_VERSIONS` and/or `EOL_VERSIONS` in `upgrade_types.py`. `SKIP_Y_STREAM_UPGRADE_MINORS` recomputes automatically. Then update: README.md supported versions table, this file's version lists.
+**When updating versions**: modify `SUPPORTED_VERSIONS` and/or `EOL_VERSIONS` in `upgrade_types.py`. For cross-major paths, update `CROSS_MAJOR_Y_STREAM_SOURCES`. `SKIP_Y_STREAM_VERSIONS` recomputes automatically. Then update: README.md supported versions table, this file's version lists.
 
 ## Development Workflow
 

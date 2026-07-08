@@ -11,7 +11,12 @@ from packaging.version import Version
 
 from cnv_upgrade_utilities.release_checklist_upgrade_plan import get_upgrade_paths_info
 from cnv_upgrade_utilities.upgrade_jobs_info import get_upgrade_jobs_info
-from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
+from cnv_upgrade_utilities.upgrade_types import (
+    _BLOCKED_Y_STREAM_TARGETS,
+    _NON_EUS_VERSIONS,
+    CROSS_MAJOR_Y_STREAM_SOURCES,
+    SUPPORTED_VERSIONS,
+)
 from cnv_upgrade_utilities.version_types import format_minor_version, normalize_csv_version, parse_patch_version
 from utils.version_explorer import CnvVersionExplorer
 
@@ -52,11 +57,17 @@ def _build_upgrade_paths_for_version(version: str, max_z: int) -> list[tuple[str
         paths.append((f"{version}.0", version, "latest_z"))
 
     v = Version(version)
-    source_y = f"{v.major}.{v.minor - 1}"
-    if source_y in SUPPORTED_VERSIONS:
-        paths.append((source_y, version, "y_stream"))
+    cross_major_sources = CROSS_MAJOR_Y_STREAM_SOURCES.get(version, [])
+    if cross_major_sources:
+        for source in cross_major_sources:
+            if source in SUPPORTED_VERSIONS:
+                paths.append((source, version, "y_stream"))
+    elif version not in _BLOCKED_Y_STREAM_TARGETS:
+        source_y = f"{v.major}.{v.minor - 1}"
+        if source_y in SUPPORTED_VERSIONS:
+            paths.append((source_y, version, "y_stream"))
 
-    if v.minor % 2 == 0:
+    if v.minor % 2 == 0 and version not in _NON_EUS_VERSIONS:
         source_eus = f"{v.major}.{v.minor - 2}"
         if source_eus in SUPPORTED_VERSIONS:
             paths.append((source_eus, version, "eus"))
@@ -112,15 +123,27 @@ def generate_release_checklists(
     LOGGER.info("Generating release checklists for %d versions...", total)
 
     for i, (version, max_z) in enumerate(versions_to_check, 1):
-        target = Version(f"{version}.{max_z}")
-        label = str(target)
-        LOGGER.info("[%d/%d] release_checklist: %s", i, total, label)
-        try:
-            result = get_upgrade_paths_info(explorer, target_version=target, skip_target_check=True)
-            versions[version] = result
-        except Exception as exc:
-            LOGGER.warning("[%d/%d] release_checklist %s: %s", i, total, label, exc)
-            errors.append({"context": f"release_checklist {label}", "error": str(exc)})
+        result = None
+        for z in range(max_z, -1, -1):
+            target = Version(f"{version}.{z}")
+            LOGGER.info("[%d/%d] release_checklist: %s", i, total, target)
+            try:
+                result = get_upgrade_paths_info(explorer, target_version=target)
+                break
+            except (ValueError, ConnectionError, TimeoutError):
+                continue
+
+        if result is None:
+            target = Version(f"{version}.{max_z}")
+            LOGGER.info("[%d/%d] release_checklist: %s (skip-target-check fallback)", i, total, target)
+            try:
+                result = get_upgrade_paths_info(explorer, target_version=target, skip_target_check=True)
+            except Exception as exc:
+                LOGGER.warning("[%d/%d] release_checklist %s: %s", i, total, target, exc)
+                errors.append({"context": f"release_checklist {target}", "error": str(exc)})
+                continue
+
+        versions[version] = result
 
     return versions, errors
 

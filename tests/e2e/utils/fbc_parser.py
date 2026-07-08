@@ -10,7 +10,7 @@ import yaml
 from cnv_upgrade_utilities.version_types import strip_bundle_suffix
 
 
-def parse_fbc_graph(repo_path: str | Path, minor: int) -> dict[str, list[dict]]:
+def parse_fbc_graph(repo_path: str | Path, minor: int, major: int = 4) -> dict[str, list[dict]]:
     """
     Parse graph.yaml for a minor version and return channel entries.
 
@@ -23,7 +23,7 @@ def parse_fbc_graph(repo_path: str | Path, minor: int) -> dict[str, list[dict]]:
         - skip_range: skipRange string (e.g., ">=4.20.0 <4.20.3")
         - skips: list of skipped versions
     """
-    graph_path = Path(repo_path) / f"v4.{minor}" / "graph.yaml"
+    graph_path = Path(repo_path) / f"v{major}.{minor}" / "graph.yaml"
     if not graph_path.exists():
         return {}
 
@@ -66,22 +66,22 @@ def _extract_version(operator_name: str) -> str | None:
     return match.group(1) if match else None
 
 
-def get_fbc_versions_in_channel(repo_path: str | Path, minor: int, channel: str) -> list[str]:
+def get_fbc_versions_in_channel(repo_path: str | Path, minor: int, channel: str, major: int = 4) -> list[str]:
     """Get all version strings present in a channel for a given minor."""
-    channels = parse_fbc_graph(repo_path, minor)
+    channels = parse_fbc_graph(repo_path, minor, major)
     entries = channels.get(channel, [])
     return [e["version"] for e in entries if e["version"]]
 
 
-def get_fbc_latest_version_in_channel(repo_path: str | Path, minor: int, channel: str) -> str | None:
+def get_fbc_latest_version_in_channel(repo_path: str | Path, minor: int, channel: str, major: int = 4) -> str | None:
     """Get the latest (last entry) version in a channel for a given minor."""
-    versions = get_fbc_versions_in_channel(repo_path, minor, channel)
+    versions = get_fbc_versions_in_channel(repo_path, minor, channel, major)
     return versions[-1] if versions else None
 
 
-def parse_updated_image(repo_path: str | Path, minor: int) -> dict | None:
+def parse_updated_image(repo_path: str | Path, minor: int, major: int = 4) -> dict | None:
     """Parse updated_image.yaml to get the latest z-stream's current channel and build."""
-    path = Path(repo_path) / f"v4.{minor}" / "updated_image.yaml"
+    path = Path(repo_path) / f"v{major}.{minor}" / "updated_image.yaml"
     if not path.exists():
         return None
     with open(path) as f:
@@ -95,9 +95,11 @@ def parse_updated_image(repo_path: str | Path, minor: int) -> dict | None:
     }
 
 
-def get_fbc_entry_by_version(repo_path: str | Path, minor: int, channel: str, version: str) -> dict | None:
+def get_fbc_entry_by_version(
+    repo_path: str | Path, minor: int, channel: str, version: str, major: int = 4
+) -> dict | None:
     """Find a specific entry in a channel by version string."""
-    channels = parse_fbc_graph(repo_path, minor)
+    channels = parse_fbc_graph(repo_path, minor, major)
     for entry in channels.get(channel, []):
         if entry["version"] == version:
             return entry

@@ -8,7 +8,7 @@ state changes frequently during the build/promote cycle.
 import pytest
 
 from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
-from cnv_upgrade_utilities.version_types import normalize_csv_version, parse_minor_version
+from cnv_upgrade_utilities.version_types import normalize_csv_version, parse_major_version, parse_minor_version
 
 from ..utils.fbc_parser import get_fbc_versions_in_channel, parse_updated_image
 
@@ -20,23 +20,26 @@ pytestmark = [pytest.mark.fbc, pytest.mark.e2e]
 class TestFbcStaleStageDetection:
     """Detect stale in_stage flags by comparing against FBC version ordering."""
 
-    @pytest.mark.parametrize("minor", [parse_minor_version(v) for v in SUPPORTED_VERSIONS], ids=SUPPORTED_VERSIONS)
-    def test_no_stale_in_stage_in_stable_channel(self, fbc_explorer, fbc_repo_path, minor):
+    @pytest.mark.parametrize("version", SUPPORTED_VERSIONS, ids=SUPPORTED_VERSIONS)
+    def test_no_stale_in_stage_in_stable_channel(self, fbc_explorer, fbc_repo_path, version):
         """
         If a build is in_stage=True for stable channel, no newer z-stream
         in the same stable channel should already be released_to_prod=True.
 
         Excludes the latest z-stream being developed (from updated_image.yaml).
         """
-        fbc_stable_versions = get_fbc_versions_in_channel(fbc_repo_path, minor, "stable")
+        major = parse_major_version(version)
+        minor = parse_minor_version(version)
+
+        fbc_stable_versions = get_fbc_versions_in_channel(fbc_repo_path, minor, "stable", major)
         if not fbc_stable_versions:
-            pytest.skip(f"No stable channel in FBC for v4.{minor}")
+            pytest.skip(f"No stable channel in FBC for v{major}.{minor}")
 
-        builds = fbc_explorer.get_released_builds(minor_version=f"v4.{minor}", stage=True)
+        builds = fbc_explorer.get_released_builds(minor_version=f"v{major}.{minor}", stage=True)
         if not builds:
-            pytest.skip(f"No released builds found for v4.{minor}")
+            pytest.skip(f"No released builds found for v{major}.{minor}")
 
-        updated_image = parse_updated_image(fbc_repo_path, minor)
+        updated_image = parse_updated_image(fbc_repo_path, minor, major)
         latest_z_version = updated_image["version"] if updated_image else None
 
         stage_builds = []
@@ -65,7 +68,7 @@ class TestFbcStaleStageDetection:
 
                 if prod_z > stage_z:
                     pytest.fail(
-                        f"v4.{minor}: Stale in_stage detected — {stage_version} is marked "
+                        f"v{major}.{minor}: Stale in_stage detected — {stage_version} is marked "
                         f"in_stage=True but {prod_version} (z={prod_z}) is already released to prod. "
                         f"This is a Version Explorer data quality issue."
                     )

@@ -110,6 +110,14 @@ class TestFetchSourceVersion:
         assert result.version == "4.19.5"
         mock_explorer.get_released_builds.assert_called_once_with(minor_version="v4.19", stage=False)
 
+    def test_cross_major_source_minor_version(self, mock_explorer):
+        channels = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:1")]
+        build = make_released_build(csv_version="v4.23.3", version="v4.23.3.rhel9-5", channels=channels)
+        mock_explorer.get_released_builds.return_value = [build]
+        result = fetch_source_version(mock_explorer, Version("5.0.0"), source_minor_version="4.23")
+        assert result.version == "4.23.3"
+        mock_explorer.get_released_builds.assert_called_once_with(minor_version="v4.23", stage=False)
+
     def test_eus_offset(self, mock_explorer):
         channels = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:1")]
         build = make_released_build(csv_version="v4.18.10", version="v4.18.10.rhel9-5", channels=channels)
@@ -245,3 +253,30 @@ class TestGetUpgradePathsInfo:
         assert lanes["Y stream"]["post_upgrade_suite"] == POST_UPGRADE_SUITE_MARKER
         assert lanes["Z stream"]["post_upgrade_suite"] == POST_UPGRADE_SUITE_NONE
         assert lanes["latest z"]["post_upgrade_suite"] == POST_UPGRADE_SUITE_NONE
+
+    def test_5_0_cross_major_y_stream_lane(self, mock_explorer):
+        target_build = make_successful_build(
+            cnv_build="v5.0.0.rhel9-1",
+            iib="iib:target",
+            channel="stable",
+            released_to_prod=False,
+            in_stage=True,
+        )
+        mock_explorer.get_successful_builds_by_version.return_value = [target_build]
+
+        ch_4_22 = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:422")]
+        build_4_22 = make_released_build(csv_version="v4.22.8", version="v4.22.8.rhel9-10", channels=ch_4_22)
+
+        def released_builds_side_effect(minor_version, stage=False):
+            if minor_version == "v4.22":
+                return [build_4_22]
+            return []
+
+        mock_explorer.get_released_builds.side_effect = released_builds_side_effect
+        result = get_upgrade_paths_info(mock_explorer, Version("5.0.0"))
+        lanes = result["upgrade_lanes"]
+        assert "Y stream (4.22)" in lanes
+        assert "Y stream" not in lanes
+        assert "EUS" not in lanes
+        assert "Z stream" not in lanes
+        assert lanes["Y stream (4.22)"]["source_version"] == "4.22.8"

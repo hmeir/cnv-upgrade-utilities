@@ -10,7 +10,7 @@ import logging
 import pytest
 
 from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
-from cnv_upgrade_utilities.version_types import normalize_csv_version, parse_minor_version
+from cnv_upgrade_utilities.version_types import normalize_csv_version, parse_major_version, parse_minor_version
 
 from ..utils.fbc_parser import (
     get_fbc_entry_by_version,
@@ -36,18 +36,21 @@ def _is_latest_z(csv_version: str, updated_image: dict | None) -> bool:
 class TestFbcChannelConsistency:
     """Verify that Version Explorer build data matches FBC graph.yaml."""
 
-    @pytest.mark.parametrize("minor", [parse_minor_version(v) for v in SUPPORTED_VERSIONS], ids=SUPPORTED_VERSIONS)
-    def test_released_builds_exist_in_fbc(self, fbc_explorer, fbc_repo_path, minor):
+    @pytest.mark.parametrize("version", SUPPORTED_VERSIONS, ids=SUPPORTED_VERSIONS)
+    def test_released_builds_exist_in_fbc(self, fbc_explorer, fbc_repo_path, version):
         """Each released build in Version Explorer should exist in FBC under the same channel."""
-        fbc_channels = parse_fbc_graph(fbc_repo_path, minor)
+        major = parse_major_version(version)
+        minor = parse_minor_version(version)
+
+        fbc_channels = parse_fbc_graph(fbc_repo_path, minor, major)
         if not fbc_channels:
-            pytest.skip(f"No FBC graph.yaml found for v4.{minor}")
+            pytest.skip(f"No FBC graph.yaml found for v{major}.{minor}")
 
-        builds = fbc_explorer.get_released_builds(minor_version=f"v4.{minor}", stage=True)
+        builds = fbc_explorer.get_released_builds(minor_version=f"v{major}.{minor}", stage=True)
         if not builds:
-            pytest.skip(f"No released builds found for v4.{minor}")
+            pytest.skip(f"No released builds found for v{major}.{minor}")
 
-        updated_image = parse_updated_image(fbc_repo_path, minor)
+        updated_image = parse_updated_image(fbc_repo_path, minor, major)
 
         for build in builds:
             csv_version = normalize_csv_version(build.csv_version)
@@ -57,14 +60,15 @@ class TestFbcChannelConsistency:
 
             if _is_latest_z(csv_version, updated_image):
                 fbc_channel = updated_image["channel"]
-                fbc_versions = get_fbc_versions_in_channel(fbc_repo_path, minor, fbc_channel)
+                fbc_versions = get_fbc_versions_in_channel(fbc_repo_path, minor, fbc_channel, major)
                 assert csv_version in fbc_versions, (
                     f"Latest z-stream {csv_version} not found in FBC under its current channel '{fbc_channel}' "
                     f"(API says channel='{channel}', FBC updated_image says channel='{fbc_channel}')"
                 )
                 if channel != fbc_channel:
                     LOGGER.info(
-                        "v4.%d: %s channel mismatch — API=%s, FBC=%s (expected during promotion)",
+                        "v%d.%d: %s channel mismatch — API=%s, FBC=%s (expected during promotion)",
+                        major,
                         minor,
                         csv_version,
                         channel,
@@ -72,28 +76,31 @@ class TestFbcChannelConsistency:
                     )
                 continue
 
-            fbc_versions = get_fbc_versions_in_channel(fbc_repo_path, minor, channel)
+            fbc_versions = get_fbc_versions_in_channel(fbc_repo_path, minor, channel, major)
             assert csv_version in fbc_versions, (
                 f"Build {csv_version} (channel={channel}) returned by Version Explorer "
-                f"but not found in FBC graph.yaml for v4.{minor}/{channel}"
+                f"but not found in FBC graph.yaml for v{major}.{minor}/{channel}"
             )
 
-    @pytest.mark.parametrize("minor", [parse_minor_version(v) for v in SUPPORTED_VERSIONS], ids=SUPPORTED_VERSIONS)
-    def test_replaces_field_matches_fbc(self, fbc_explorer, fbc_repo_path, minor):
+    @pytest.mark.parametrize("version", SUPPORTED_VERSIONS, ids=SUPPORTED_VERSIONS)
+    def test_replaces_field_matches_fbc(self, fbc_explorer, fbc_repo_path, version):
         """The 'replaces' field in Version Explorer should match FBC's candidate channel.
 
         The API returns replaces/skipRange from the candidate perspective regardless
         of current_channel, so we always compare against FBC's candidate channel.
         """
-        fbc_channels = parse_fbc_graph(fbc_repo_path, minor)
+        major = parse_major_version(version)
+        minor = parse_minor_version(version)
+
+        fbc_channels = parse_fbc_graph(fbc_repo_path, minor, major)
         if not fbc_channels or "candidate" not in fbc_channels:
-            pytest.skip(f"No candidate channel in FBC graph.yaml for v4.{minor}")
+            pytest.skip(f"No candidate channel in FBC graph.yaml for v{major}.{minor}")
 
-        builds = fbc_explorer.get_released_builds(minor_version=f"v4.{minor}", stage=True)
+        builds = fbc_explorer.get_released_builds(minor_version=f"v{major}.{minor}", stage=True)
         if not builds:
-            pytest.skip(f"No released builds found for v4.{minor}")
+            pytest.skip(f"No released builds found for v{major}.{minor}")
 
-        updated_image = parse_updated_image(fbc_repo_path, minor)
+        updated_image = parse_updated_image(fbc_repo_path, minor, major)
         seen = set()
 
         for build in builds:
@@ -105,7 +112,7 @@ class TestFbcChannelConsistency:
             if _is_latest_z(csv_version, updated_image):
                 continue
 
-            fbc_entry = get_fbc_entry_by_version(fbc_repo_path, minor, "candidate", csv_version)
+            fbc_entry = get_fbc_entry_by_version(fbc_repo_path, minor, "candidate", csv_version, major=major)
             if not fbc_entry:
                 continue
 
@@ -118,22 +125,25 @@ class TestFbcChannelConsistency:
                     f"but FBC candidate says replaces={fbc_replaces}"
                 )
 
-    @pytest.mark.parametrize("minor", [parse_minor_version(v) for v in SUPPORTED_VERSIONS], ids=SUPPORTED_VERSIONS)
-    def test_skip_range_matches_fbc(self, fbc_explorer, fbc_repo_path, minor):
+    @pytest.mark.parametrize("version", SUPPORTED_VERSIONS, ids=SUPPORTED_VERSIONS)
+    def test_skip_range_matches_fbc(self, fbc_explorer, fbc_repo_path, version):
         """The 'skipRange' field should match FBC's candidate channel.
 
         The API returns replaces/skipRange from the candidate perspective regardless
         of current_channel, so we always compare against FBC's candidate channel.
         """
-        fbc_channels = parse_fbc_graph(fbc_repo_path, minor)
+        major = parse_major_version(version)
+        minor = parse_minor_version(version)
+
+        fbc_channels = parse_fbc_graph(fbc_repo_path, minor, major)
         if not fbc_channels or "candidate" not in fbc_channels:
-            pytest.skip(f"No candidate channel in FBC graph.yaml for v4.{minor}")
+            pytest.skip(f"No candidate channel in FBC graph.yaml for v{major}.{minor}")
 
-        builds = fbc_explorer.get_released_builds(minor_version=f"v4.{minor}", stage=True)
+        builds = fbc_explorer.get_released_builds(minor_version=f"v{major}.{minor}", stage=True)
         if not builds:
-            pytest.skip(f"No released builds found for v4.{minor}")
+            pytest.skip(f"No released builds found for v{major}.{minor}")
 
-        updated_image = parse_updated_image(fbc_repo_path, minor)
+        updated_image = parse_updated_image(fbc_repo_path, minor, major)
         seen = set()
 
         for build in builds:
@@ -145,7 +155,7 @@ class TestFbcChannelConsistency:
             if _is_latest_z(csv_version, updated_image):
                 continue
 
-            fbc_entry = get_fbc_entry_by_version(fbc_repo_path, minor, "candidate", csv_version)
+            fbc_entry = get_fbc_entry_by_version(fbc_repo_path, minor, "candidate", csv_version, major=major)
             if not fbc_entry or not fbc_entry["skip_range"]:
                 continue
 

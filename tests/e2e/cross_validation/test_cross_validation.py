@@ -9,7 +9,12 @@ import tempfile
 import pytest
 
 from cnv_upgrade_utilities.upgrade_types import SUPPORTED_VERSIONS
-from cnv_upgrade_utilities.version_types import normalize_csv_version, parse_minor_version, parse_patch_version
+from cnv_upgrade_utilities.version_types import (
+    normalize_csv_version,
+    parse_major_version,
+    parse_minor_version,
+    parse_patch_version,
+)
 from utils.version_explorer import CnvVersionExplorer
 
 from ..utils.fbc_data import FbcVersionData, clone_fbc_branch
@@ -37,36 +42,40 @@ def cross_validation_data():
 def test_released_versions_match(cross_validation_data, version):
     """Versions that FBC shows as released should also be released in Version Explorer."""
     fbc, explorer = cross_validation_data
+    major = parse_major_version(version)
     minor = parse_minor_version(version)
 
-    fbc_data = fbc.get_minor_data(minor)
+    fbc_data = fbc.get_minor_data(minor, major)
     fbc_released = {
         v for v, info in fbc_data["versions"].items() if info["released_to_prod"] and info["channel"] == "stable"
     }
 
-    api_builds = explorer.get_released_builds(minor_version=f"v4.{minor}", stage=False)
+    api_builds = explorer.get_released_builds(minor_version=f"v{major}.{minor}", stage=False)
     api_released = {normalize_csv_version(b.csv_version) for b in api_builds}
 
     # API should contain the latest released versions from FBC.
     # Older versions may be purged from the API, so we only check the latest few.
     if api_released and fbc_released:
         fbc_latest = max(fbc_released, key=parse_patch_version)
-        assert fbc_latest in api_released, f"4.{minor}: FBC latest released {fbc_latest} not found in Version Explorer"
+        assert fbc_latest in api_released, (
+            f"{major}.{minor}: FBC latest released {fbc_latest} not found in Version Explorer"
+        )
 
 
 @pytest.mark.parametrize("version", SUPPORTED_VERSIONS, ids=SUPPORTED_VERSIONS)
 def test_max_z_consistent(cross_validation_data, version):
     """Max z-stream depth should be consistent between FBC and Version Explorer."""
     fbc, explorer = cross_validation_data
+    major = parse_major_version(version)
     minor = parse_minor_version(version)
 
-    fbc_max_z = fbc.get_max_z(minor)
+    fbc_max_z = fbc.get_max_z(minor, major)
 
-    api_builds = explorer.get_released_builds(minor_version=f"v4.{minor}", stage=True)
+    api_builds = explorer.get_released_builds(minor_version=f"v{major}.{minor}", stage=True)
     api_max_z = -1
     for build in api_builds:
         csv = normalize_csv_version(build.csv_version)
-        if csv.startswith(f"4.{minor}."):
+        if csv.startswith(f"{major}.{minor}."):
             patch = parse_patch_version(csv)
             if patch is not None:
                 api_max_z = max(api_max_z, patch)
@@ -74,5 +83,6 @@ def test_max_z_consistent(cross_validation_data, version):
     # Allow API to be ahead (more recent data), but not behind
     if fbc_max_z > api_max_z and api_max_z >= 0:
         pytest.fail(
-            f"4.{minor}: FBC has max_z={fbc_max_z} but API has max_z={api_max_z}. Version Explorer may be behind FBC."
+            f"{major}.{minor}: FBC has max_z={fbc_max_z} but API has max_z={api_max_z}. "
+            f"Version Explorer may be behind FBC."
         )

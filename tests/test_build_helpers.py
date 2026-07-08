@@ -214,7 +214,7 @@ class TestFindReleasedSource:
         channels = [make_channel_info(channel="stable", released_to_prod=True)]
         build = make_released_build(csv_version="v4.20.3", channels=channels)
         mock_explorer.get_released_builds.return_value = [build]
-        with pytest.raises(ValueError, match="No stable build released to prod found for source version"):
+        with pytest.raises(ValueError, match="No build released to prod found for source version"):
             find_released_source(explorer=mock_explorer, minor_version="v4.20", required_csv="v4.20.0")
 
     def test_with_exclude_csv(self, mock_explorer):
@@ -234,5 +234,5 @@ class TestFindReleasedSource:
         channels = [make_channel_info(channel="stable", released_to_prod=False)]
         build = make_released_build(channels=channels)
         mock_explorer.get_released_builds.return_value = [build]
-        with pytest.raises(ValueError, match="No stable build released to prod"):
+        with pytest.raises(ValueError, match="No build released to prod"):
             find_released_source(explorer=mock_explorer, minor_version="v4.20")
