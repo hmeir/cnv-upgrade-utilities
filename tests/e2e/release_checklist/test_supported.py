@@ -16,7 +16,9 @@ class TestReleaseChecklistSupported:
     @pytest.mark.parametrize("version", SUPPORTED_VERSIONS, ids=SUPPORTED_VERSIONS)
     def test_upgrade_lanes_match_expected(self, explorer, version, version_latest_z):
         """Lanes returned should match independently computed expected lanes."""
-        max_z = version_latest_z.get(version, 0)
+        max_z = version_latest_z.get(version, -1)
+        if max_z < 0:
+            pytest.skip(f"No builds found for {version}")
         target = Version(f"{version}.{max_z}")
 
         result = get_upgrade_paths_info(explorer, target_version=target, skip_target_check=True)

@@ -349,14 +349,14 @@ def get_upgrade_jobs_info(explorer: CnvVersionExplorer, source_version: str, tar
     "--source-version",
     required=True,
     type=FLEXIBLE_VERSION_TYPE,
-    help="Source version: 4.Y, 4.Y.Z, or 4.Y.Z.rhelR-BN (e.g., 4.19, 4.20.3, 4.20.3.rhel9-18)",
+    help="Source version: X.Y, X.Y.Z, or X.Y.Z.rhelR-BN (e.g., 4.22, 5.0, 4.20.3, 4.20.3.rhel9-18)",
 )
 @click.option(
     "-t",
     "--target-version",
     required=True,
     type=FLEXIBLE_VERSION_TYPE,
-    help="Target version: 4.Y, 4.Y.Z, or 4.Y.Z.rhelR-BN (e.g., 4.20, 4.20.5, 4.20.5.rhel9-3)",
+    help="Target version: X.Y, X.Y.Z, or X.Y.Z.rhelR-BN (e.g., 5.0, 4.20.5, 4.20.5.rhel9-3)",
 )
 def main(source_version: str, target_version: str) -> None:
     try:

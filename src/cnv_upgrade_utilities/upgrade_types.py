@@ -22,27 +22,45 @@ SUPPORTED_VERSIONS = [
     "4.20",
     "4.21",
     "4.22",
+    "4.23",
+    "5.0",
 ]
 
 EOL_VERSIONS = frozenset({"4.13", "4.15"})
 
 _SUPPORTED_VERSION_SET = frozenset(SUPPORTED_VERSIONS)
 
+CROSS_MAJOR_Y_STREAM_SOURCES: dict[str, list[str]] = {
+    "5.0": ["4.22"],
+}
 
-def _compute_skip_y_stream_minors() -> frozenset[int]:
-    """Minors where Y-stream upgrade is not applicable (Y-1 is EOL or unsupported)."""
+_BLOCKED_Y_STREAM_TARGETS: frozenset[str] = frozenset()
+
+_NON_EUS_VERSIONS: frozenset[str] = frozenset({"5.0"})
+
+
+def _compute_skip_y_stream_versions() -> frozenset[str]:
+    """Versions where same-major Y-stream upgrade is not applicable."""
     supported_set = {Version(v) for v in SUPPORTED_VERSIONS}
     eol_set = {Version(v) for v in EOL_VERSIONS}
-    skip = set()
+    skip: set[str] = set()
     for v_str in SUPPORTED_VERSIONS:
+        if v_str in CROSS_MAJOR_Y_STREAM_SOURCES:
+            continue
+        if v_str in _BLOCKED_Y_STREAM_TARGETS:
+            skip.add(v_str)
+            continue
         v = Version(v_str)
+        if v.minor == 0:
+            skip.add(v_str)
+            continue
         source = Version(f"{v.major}.{v.minor - 1}")
         if source in eol_set or source not in supported_set:
-            skip.add(v.minor)
+            skip.add(v_str)
     return frozenset(skip)
 
 
-SKIP_Y_STREAM_UPGRADE_MINORS = _compute_skip_y_stream_minors()
+SKIP_Y_STREAM_VERSIONS = _compute_skip_y_stream_versions()
 
 
 class UpgradeType(Enum):
@@ -65,19 +83,24 @@ class UpgradeType(Enum):
         self.display_name = display_name
         self.minor_offset = minor_offset
 
-    def is_applicable_for_z(self, z: int, minor: int) -> bool:
-        """Check if this upgrade type applies for a given z-stream and minor version."""
+    def is_applicable_for_z(self, z: int, minor: int, major: int = 4) -> bool:
+        """Check if this upgrade type applies for a given z-stream, minor, and major version."""
+        version_str = f"{major}.{minor}"
         match self:
             case UpgradeType.Z_STREAM:
                 return z >= 1
             case UpgradeType.LATEST_Z:
                 return z >= 2
             case UpgradeType.Y_STREAM:
-                return minor not in SKIP_Y_STREAM_UPGRADE_MINORS
+                if version_str in CROSS_MAJOR_Y_STREAM_SOURCES:
+                    return True
+                return version_str not in SKIP_Y_STREAM_VERSIONS
             case UpgradeType.EUS:
+                if version_str in _NON_EUS_VERSIONS:
+                    return False
                 if minor % 2 != 0:
                     return False
-                if f"4.{minor - 2}" not in _SUPPORTED_VERSION_SET:
+                if f"{major}.{minor - 2}" not in _SUPPORTED_VERSION_SET:
                     return False
                 if z == 0:
                     return True
@@ -92,8 +115,10 @@ def is_eol_version(version: str) -> bool:
     return minor_version in EOL_VERSIONS
 
 
-def is_eus_version(minor: int) -> bool:
-    """Check if a minor version is EUS-eligible (even number)."""
+def is_eus_version(minor: int, major: int = 4) -> bool:
+    """Check if a version is EUS-eligible (even minor, not in non-EUS set)."""
+    if f"{major}.{minor}" in _NON_EUS_VERSIONS:
+        return False
     return minor % 2 == 0
 
 
@@ -102,13 +127,14 @@ def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeT
     Determine the upgrade type based on source and target versions.
 
     Supported upgrade types:
-    - 4.Y.0 -> 4.Y: latest-z (source must target the same Y)
-    - 4.Y -> 4.Y: z-stream
-    - 4.Y -> 4.Y+1: y-stream
-    - 4.Y -> 4.Y+2: EUS (both Y versions must be even)
+    - X.Y.0 -> X.Y: latest-z (source must target the same Y)
+    - X.Y -> X.Y: z-stream
+    - X.Y -> X.Y+1: y-stream
+    - X.Y -> X.Y+2: EUS (both Y versions must be even)
+    - Cross-major (e.g., 4.Y -> 5.0): y-stream
 
     Raises:
-        ValueError: If the upgrade is unsupported (same version, downgrade, etc.)
+        ValueError: If the upgrade is unsupported (same version, downgrade, blocked path, etc.)
     """
     if is_eol_version(source_version):
         raise ValueError(f"Invalid upgrade: source version {source_version} is EOL")
@@ -153,7 +179,7 @@ def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeT
     elif version_diff == 1:
         return UpgradeType.Y_STREAM
     elif version_diff == 2:
-        if is_eus_version(source_minor) and is_eus_version(target_minor):
+        if is_eus_version(source_minor, source_major) and is_eus_version(target_minor, target_major):
             return UpgradeType.EUS
         raise ValueError(
             f"Unsupported upgrade: EUS upgrade requires both versions to be even. "
@@ -165,6 +191,10 @@ def determine_upgrade_type(source_version: str, target_version: str) -> UpgradeT
     raise ValueError(f"Unsupported upgrade: source={source_version}, target={target_version}")
 
 
-def get_applicable_upgrade_types(target_minor: int, target_z: int) -> list[UpgradeType]:
+def get_applicable_upgrade_types(target_minor: int, target_z: int, target_major: int = 4) -> list[UpgradeType]:
     """Get all applicable upgrade types for a target version."""
-    return [upgrade_type for upgrade_type in UpgradeType if upgrade_type.is_applicable_for_z(target_z, target_minor)]
+    return [
+        upgrade_type
+        for upgrade_type in UpgradeType
+        if upgrade_type.is_applicable_for_z(target_z, target_minor, target_major)
+    ]

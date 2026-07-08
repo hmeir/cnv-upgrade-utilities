@@ -26,9 +26,9 @@ def clone_fbc_branch(branch: str, target_dir: str) -> None:
         raise RuntimeError(f"Failed to clone cnv-fbc branch '{branch}': {result.stderr}")
 
 
-def _parse_channel_versions(repo_path: str | Path, minor: int, channel: str) -> set[str]:
+def _parse_channel_versions(repo_path: str | Path, minor: int, channel: str, major: int = 4) -> set[str]:
     """Parse graph.yaml and return all X.Y.Z versions in a channel for a given minor."""
-    graph_path = Path(repo_path) / f"v4.{minor}" / "graph.yaml"
+    graph_path = Path(repo_path) / f"v{major}.{minor}" / "graph.yaml"
     if not graph_path.exists():
         return set()
 
@@ -40,7 +40,7 @@ def _parse_channel_versions(repo_path: str | Path, minor: int, channel: str) -> 
             versions = set()
             for e in entry.get("entries", []):
                 version = _extract_version(e.get("name", ""))
-                if version and version.startswith(f"4.{minor}."):
+                if version and version.startswith(f"{major}.{minor}."):
                     versions.add(version)
             return versions
     return set()
@@ -52,20 +52,21 @@ class FbcVersionData:
     def __init__(self, stage_path: str, production_path: str):
         self.stage_path = stage_path
         self.production_path = production_path
-        self._cache: dict[int, dict] = {}
+        self._cache: dict[tuple[int, int], dict] = {}
 
-    def get_minor_data(self, minor: int) -> dict:
+    def get_minor_data(self, minor: int, major: int = 4) -> dict:
         """Get version data for a minor, with caching."""
-        if minor not in self._cache:
-            self._cache[minor] = self._build_minor_data(minor)
-        return self._cache[minor]
+        key = (major, minor)
+        if key not in self._cache:
+            self._cache[key] = self._build_minor_data(minor, major)
+        return self._cache[key]
 
-    def _build_minor_data(self, minor: int) -> dict:
+    def _build_minor_data(self, minor: int, major: int = 4) -> dict:
         """Build version data for a minor by comparing stage vs production."""
-        stage_stable = _parse_channel_versions(self.stage_path, minor, "stable")
-        prod_stable = _parse_channel_versions(self.production_path, minor, "stable")
-        stage_candidate = _parse_channel_versions(self.stage_path, minor, "candidate")
-        prod_candidate = _parse_channel_versions(self.production_path, minor, "candidate")
+        stage_stable = _parse_channel_versions(self.stage_path, minor, "stable", major)
+        prod_stable = _parse_channel_versions(self.production_path, minor, "stable", major)
+        stage_candidate = _parse_channel_versions(self.stage_path, minor, "candidate", major)
+        prod_candidate = _parse_channel_versions(self.production_path, minor, "candidate", major)
 
         all_versions = sorted(stage_stable | prod_stable | stage_candidate | prod_candidate)
 
@@ -103,12 +104,12 @@ class FbcVersionData:
             return None
         return max(matching, key=parse_patch_version)
 
-    def get_latest_released_stable(self, minor: int) -> str | None:
+    def get_latest_released_stable(self, minor: int, major: int = 4) -> str | None:
         """Get latest stable version released to prod for a minor."""
-        data = self.get_minor_data(minor)
+        data = self.get_minor_data(minor, major)
         return data["latest_released"]
 
-    def get_max_z(self, minor: int) -> int:
+    def get_max_z(self, minor: int, major: int = 4) -> int:
         """Get max z-stream value for a minor."""
-        data = self.get_minor_data(minor)
+        data = self.get_minor_data(minor, major)
         return data["max_z"]

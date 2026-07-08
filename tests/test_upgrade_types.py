@@ -2,7 +2,7 @@ import pytest
 
 from cnv_upgrade_utilities.upgrade_types import (
     EOL_VERSIONS,
-    SKIP_Y_STREAM_UPGRADE_MINORS,
+    SKIP_Y_STREAM_VERSIONS,
     SUPPORTED_VERSIONS,
     UpgradeType,
     determine_upgrade_type,
@@ -26,39 +26,45 @@ class TestIsEusVersion:
     def test_is_eus_version(self, minor, expected):
         assert is_eus_version(minor) == expected
 
+    def test_5_0_not_eus(self):
+        assert is_eus_version(0, major=5) is False
+
 
 class TestUpgradeTypeIsApplicableForZ:
     @pytest.mark.parametrize(
-        ("upgrade_type", "z", "minor", "expected"),
+        ("upgrade_type", "z", "minor", "major", "expected"),
         [
-            (UpgradeType.Z_STREAM, 0, 20, False),
-            (UpgradeType.Z_STREAM, 1, 20, True),
-            (UpgradeType.Z_STREAM, 5, 20, True),
-            (UpgradeType.LATEST_Z, 0, 20, False),
-            (UpgradeType.LATEST_Z, 1, 20, False),
-            (UpgradeType.LATEST_Z, 2, 20, True),
-            (UpgradeType.LATEST_Z, 5, 20, True),
-            (UpgradeType.Y_STREAM, 0, 20, True),
-            (UpgradeType.Y_STREAM, 1, 20, True),
-            (UpgradeType.Y_STREAM, 0, 12, False),
-            (UpgradeType.Y_STREAM, 0, 14, False),
-            (UpgradeType.Y_STREAM, 0, 16, False),
-            (UpgradeType.EUS, 0, 20, True),
-            (UpgradeType.EUS, 0, 18, True),
-            (UpgradeType.EUS, 0, 19, False),
-            (UpgradeType.EUS, 1, 20, False),
-            (UpgradeType.EUS, 0, 12, False),
-            (UpgradeType.EUS, 0, 14, True),
-            (UpgradeType.EUS, 0, 16, True),
-            (UpgradeType.EUS, 2, 14, True),
-            (UpgradeType.EUS, 5, 16, True),
-            (UpgradeType.EUS, 2, 20, True),
-            (UpgradeType.EUS, 2, 12, False),
-            (UpgradeType.EUS, 1, 14, False),
+            (UpgradeType.Z_STREAM, 0, 20, 4, False),
+            (UpgradeType.Z_STREAM, 1, 20, 4, True),
+            (UpgradeType.Z_STREAM, 5, 20, 4, True),
+            (UpgradeType.LATEST_Z, 0, 20, 4, False),
+            (UpgradeType.LATEST_Z, 1, 20, 4, False),
+            (UpgradeType.LATEST_Z, 2, 20, 4, True),
+            (UpgradeType.LATEST_Z, 5, 20, 4, True),
+            (UpgradeType.Y_STREAM, 0, 20, 4, True),
+            (UpgradeType.Y_STREAM, 1, 20, 4, True),
+            (UpgradeType.Y_STREAM, 0, 12, 4, False),
+            (UpgradeType.Y_STREAM, 0, 14, 4, False),
+            (UpgradeType.Y_STREAM, 0, 16, 4, False),
+            (UpgradeType.Y_STREAM, 0, 23, 4, True),
+            (UpgradeType.Y_STREAM, 0, 0, 5, True),
+            (UpgradeType.EUS, 0, 20, 4, True),
+            (UpgradeType.EUS, 0, 18, 4, True),
+            (UpgradeType.EUS, 0, 19, 4, False),
+            (UpgradeType.EUS, 1, 20, 4, False),
+            (UpgradeType.EUS, 0, 12, 4, False),
+            (UpgradeType.EUS, 0, 14, 4, True),
+            (UpgradeType.EUS, 0, 16, 4, True),
+            (UpgradeType.EUS, 2, 14, 4, True),
+            (UpgradeType.EUS, 5, 16, 4, True),
+            (UpgradeType.EUS, 2, 20, 4, True),
+            (UpgradeType.EUS, 2, 12, 4, False),
+            (UpgradeType.EUS, 1, 14, 4, False),
+            (UpgradeType.EUS, 0, 0, 5, False),
         ],
     )
-    def test_is_applicable_for_z(self, upgrade_type, z, minor, expected):
-        assert upgrade_type.is_applicable_for_z(z, minor) == expected
+    def test_is_applicable_for_z(self, upgrade_type, z, minor, major, expected):
+        assert upgrade_type.is_applicable_for_z(z, minor, major) == expected
 
 
 class TestDetermineUpgradeType:
@@ -121,9 +127,15 @@ class TestDetermineUpgradeType:
     def test_cross_major_upgrade(self):
         assert determine_upgrade_type("4.22", "5.0") == UpgradeType.Y_STREAM
 
+    def test_cross_major_upgrade_from_4_23(self):
+        assert determine_upgrade_type("4.23", "5.0") == UpgradeType.Y_STREAM
+
     def test_cross_major_downgrade_raises(self):
         with pytest.raises(ValueError, match="cannot downgrade"):
             determine_upgrade_type("5.0", "4.22")
+
+    def test_4_22_to_4_23_y_stream(self):
+        assert determine_upgrade_type("4.22", "4.23") == UpgradeType.Y_STREAM
 
     def test_dot_zero_source_cross_minor_is_eus(self):
         assert determine_upgrade_type("4.16.0", "4.18") == UpgradeType.EUS
@@ -146,6 +158,7 @@ class TestIsEolVersion:
             ("4.12", False),
             ("4.16", False),
             ("4.20", False),
+            ("5.0", False),
         ],
     )
     def test_is_eol_version(self, version, expected):
@@ -179,9 +192,11 @@ class TestGetApplicableUpgradeTypes:
         assert UpgradeType.Y_STREAM in result
         assert UpgradeType.EUS not in result
 
-    def test_skip_minor_y_stream(self):
-        for minor in SKIP_Y_STREAM_UPGRADE_MINORS:
-            result = get_applicable_upgrade_types(target_minor=minor, target_z=0)
+    def test_skip_version_y_stream(self):
+        for version in SKIP_Y_STREAM_VERSIONS:
+            major = int(version.split(".")[0])
+            minor = int(version.split(".")[1])
+            result = get_applicable_upgrade_types(target_minor=minor, target_z=0, target_major=major)
             assert UpgradeType.Y_STREAM not in result
 
     def test_4_12_no_y_stream_no_eus(self):
@@ -221,6 +236,20 @@ class TestGetApplicableUpgradeTypes:
         assert UpgradeType.Y_STREAM in result
         assert UpgradeType.EUS in result
 
+    def test_5_0_z0_y_stream_only(self):
+        result = get_applicable_upgrade_types(target_minor=0, target_z=0, target_major=5)
+        assert UpgradeType.Y_STREAM in result
+        assert UpgradeType.EUS not in result
+        assert UpgradeType.Z_STREAM not in result
+        assert UpgradeType.LATEST_Z not in result
+
+    def test_4_23_z0_y_stream_no_eus(self):
+        result = get_applicable_upgrade_types(target_minor=23, target_z=0)
+        assert UpgradeType.Y_STREAM in result
+        assert UpgradeType.EUS not in result
+        assert UpgradeType.Z_STREAM not in result
+        assert UpgradeType.LATEST_Z not in result
+
 
 class TestUpgradeTypeAttributes:
     def test_y_stream_attributes(self):
@@ -243,7 +272,7 @@ class TestUpgradeTypeAttributes:
 
 class TestVersionConstants:
     def test_supported_versions_match_expected(self):
-        expected = ["4.12", "4.14", "4.16", "4.17", "4.18", "4.19", "4.20", "4.21", "4.22"]
+        expected = ["4.12", "4.14", "4.16", "4.17", "4.18", "4.19", "4.20", "4.21", "4.22", "4.23", "5.0"]
         assert SUPPORTED_VERSIONS == expected
 
     def test_eol_versions_match_expected(self):
@@ -253,6 +282,6 @@ class TestVersionConstants:
     def test_no_overlap_supported_and_eol(self):
         assert not set(SUPPORTED_VERSIONS) & EOL_VERSIONS
 
-    def test_skip_y_stream_minors_match_expected(self):
-        expected = frozenset({12, 14, 16})
-        assert SKIP_Y_STREAM_UPGRADE_MINORS == expected
+    def test_skip_y_stream_versions_match_expected(self):
+        expected = frozenset({"4.12", "4.14", "4.16"})
+        assert SKIP_Y_STREAM_VERSIONS == expected

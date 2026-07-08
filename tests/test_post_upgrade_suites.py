@@ -41,3 +41,6 @@ class TestGetPostUpgradeSuite:
 
     def test_unmapped_returns_none_suite(self):
         assert get_post_upgrade_suite(UpgradeType.Z_STREAM, 0) == POST_UPGRADE_SUITE_NONE
+
+    def test_eus_z2_4_23_returns_none(self):
+        assert get_post_upgrade_suite(UpgradeType.EUS, 2, minor=23) == POST_UPGRADE_SUITE_NONE

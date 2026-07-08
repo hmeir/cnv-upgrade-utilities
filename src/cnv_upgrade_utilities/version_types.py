@@ -65,11 +65,13 @@ class VersionParamType(click.ParamType):
         return value
 
 
-FULL_VERSION_TYPE = VersionParamType(pattern=FULL_VERSION_PATTERN, name="version", example="4.Y.z (e.g., 4.20.2)")
+FULL_VERSION_TYPE = VersionParamType(
+    pattern=FULL_VERSION_PATTERN, name="version", example="X.Y.z (e.g., 4.20.2, 5.0.0)"
+)
 FLEXIBLE_VERSION_TYPE = VersionParamType(
     pattern=FLEXIBLE_VERSION_PATTERN,
     name="flexible_version",
-    example="4.Y (e.g., 4.20), 4.Y.Z (e.g., 4.20.3), or 4.Y.Z.rhelR-BN (e.g., 4.20.3.rhel9-18)",
+    example="X.Y (e.g., 4.20, 5.0), X.Y.Z (e.g., 4.20.3), or X.Y.Z.rhelR-BN (e.g., 4.20.3.rhel9-18)",
 )
 
 
