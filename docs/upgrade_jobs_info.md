@@ -38,6 +38,7 @@ The version format determines the level of resolution:
 | `4.Y.0` | `4.Y`     | Latest-Z                |
 | `4.Y`   | `4.(Y+1)` | Y-stream                |
 | `4.Y`   | `4.(Y+2)` | EUS (both must be even) |
+| `4.Y`   | `5.0`     | Y-stream (cross-major)  |
 
 
 **Validation**: the tool rejects same-version upgrades, downgrades, gaps > 2 minor versions, EUS with odd versions, and EOL sources/targets.
@@ -50,6 +51,7 @@ MINOR format (auto-resolve z-streams):
 upgrade_jobs_info -s 4.20 -t 4.20          # Z-stream
 upgrade_jobs_info -s 4.19 -t 4.20          # Y-stream
 upgrade_jobs_info -s 4.18 -t 4.20          # EUS
+upgrade_jobs_info -s 4.22 -t 5.0           # Cross-major Y-stream
 ```
 
 FULL format (specific versions):
