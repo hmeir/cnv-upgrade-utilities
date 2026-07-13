@@ -1,14 +1,14 @@
 # Release Checklist
 
-Generated: 2026-07-08 06:08 UTC | Versions: 10
+Generated: 2026-07-13 09:34 UTC | Versions: 11
 
-## 4.12 -> 4.12.25
+## 4.12 -> 4.12.26
 
-**Target**: 4.12.25 (4.12.25-39) | channel: candidate | **in stage** | not released to prod
+**Target**: 4.12.26 (4.12.26-4) | channel: candidate | **in stage** | not released to prod
 
 | Lane | Source | IIB | Channel | Post-Upgrade Suite |
 |------|--------|-----|---------|-------------------|
-| Z stream | 4.12.24 | iib:1149500 | stable | NONE |
+| Z stream | 4.12.25 | iib:1174851 | candidate | NONE |
 | latest z | 4.12.0 | iib:399135 | stable | NONE |
 
 ## 4.14 -> 4.14.24
@@ -18,7 +18,7 @@ Generated: 2026-07-08 06:08 UTC | Versions: 10
 | Lane | Source | IIB | Channel | Post-Upgrade Suite |
 |------|--------|-----|---------|-------------------|
 | Z stream | 4.14.23 | iib:1168279 | candidate | NONE |
-| EUS | 4.12.24 | iib:1149500 | stable | UTS-Marker |
+| EUS | 4.12.25 | iib:1174851 | candidate | UTS-Marker |
 | latest z | 4.14.0 | iib:611376 | stable | NONE |
 
 ## 4.16 -> 4.16.40
@@ -52,14 +52,14 @@ Generated: 2026-07-08 06:08 UTC | Versions: 10
 | EUS | 4.16.40 | iib:1172274 | candidate | NONE |
 | latest z | 4.18.0 | iib:928381 | stable | NONE |
 
-## 4.19 -> 4.19.28
+## 4.19 -> 4.19.29
 
-**Target**: 4.19.28 (4.19.28.rhel9-14) | channel: stable | **in stage** | not released to prod
+**Target**: 4.19.29 (4.19.29.rhel9-31) | channel: stable | **in stage** | not released to prod
 
 | Lane | Source | IIB | Channel | Post-Upgrade Suite |
 |------|--------|-----|---------|-------------------|
 | Y stream | 4.18.41 | iib:1174052 | candidate | UTS-Marker |
-| Z stream | 4.19.27 | iib:1158970 | candidate | NONE |
+| Z stream | 4.19.28 | iib:1164900 | candidate | NONE |
 | latest z | 4.19.0 | iib:991381 | stable | NONE |
 
 ## 4.20 -> 4.20.20
@@ -68,7 +68,7 @@ Generated: 2026-07-08 06:08 UTC | Versions: 10
 
 | Lane | Source | IIB | Channel | Post-Upgrade Suite |
 |------|--------|-----|---------|-------------------|
-| Y stream | 4.19.28 | iib:1164900 | candidate | UTS-Marker |
+| Y stream | 4.19.29 | iib:1175611 | candidate | UTS-Marker |
 | Z stream | 4.20.19 | iib:1165585 | candidate | NONE |
 | EUS | 4.18.41 | iib:1174052 | candidate | NONE |
 | latest z | 4.20.0 | iib:1063267 | stable | NONE |
@@ -96,8 +96,16 @@ Generated: 2026-07-08 06:08 UTC | Versions: 10
 
 ## 4.23 -> 4.23.0
 
-**Target**: 4.23.0 (4.23.0.rhel9-8) | channel: candidate | **in stage** | not released to prod
+**Target**: 4.23.0 (4.23.0.rhel9-16) | channel: candidate | **in stage** | not released to prod
 
 | Lane | Source | IIB | Channel | Post-Upgrade Suite |
 |------|--------|-----|---------|-------------------|
 | Y stream | 4.22.2 | iib:1170067 | candidate | UTS-FULL |
+
+## 5.0 -> 5.0.0
+
+**Target**: 5.0.0 (5.0.0.rhel9-14) | channel: candidate | **in stage** | not released to prod
+
+| Lane | Source | IIB | Channel | Post-Upgrade Suite |
+|------|--------|-----|---------|-------------------|
+| Y stream (4.22) | 4.22.2 | iib:1170067 | candidate | UTS-FULL |
