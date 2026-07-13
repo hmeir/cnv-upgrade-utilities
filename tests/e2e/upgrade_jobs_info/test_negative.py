@@ -66,7 +66,7 @@ class TestNegativeWithErrorMessages:
         with pytest.raises(ValueError, match="cannot downgrade"):
             get_upgrade_jobs_info(explorer, source_version="5.0", target_version="4.22")
 
-    def test_cross_major_non_existent_target_clean_error(self, explorer):
-        """4.22 -> 5.0 should produce clean error, not KeyError crash."""
-        with pytest.raises(ValueError, match="No released builds found|No stable"):
-            get_upgrade_jobs_info(explorer, source_version="4.22", target_version="5.0")
+    def test_cross_major_upgrade_4_22_to_5_0(self, explorer):
+        """4.22 -> 5.0 is a valid cross-major Y-stream upgrade."""
+        result = get_upgrade_jobs_info(explorer, source_version="4.22", target_version="5.0")
+        assert result["upgrade_type"] == "y_stream"
