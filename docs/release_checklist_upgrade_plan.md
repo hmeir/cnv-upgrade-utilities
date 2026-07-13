@@ -28,6 +28,9 @@ release_checklist_upgrade_plan -v 4.20.2
 # Major release — generates Y-stream + EUS lanes (4.20 is even)
 release_checklist_upgrade_plan -v 4.20.0
 
+# Cross-major — Y-stream from 4.22
+release_checklist_upgrade_plan -v 5.0.0
+
 # Skip target validation (e.g., target already released to prod)
 release_checklist_upgrade_plan -v 4.16.33 --skip-target-check
 ```
