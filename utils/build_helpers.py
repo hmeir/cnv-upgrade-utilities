@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from packaging.version import Version
 
 from cnv_upgrade_utilities.version_types import strip_bundle_suffix
-from utils.constants import CHANNEL_CANDIDATE, CHANNEL_STABLE
+from utils.constants import CHANNEL_STABLE
 from utils.models import BuildInfo, BuildResult, ChannelInfo, ReleasedBuild, SuccessfulBuild
 
 if TYPE_CHECKING:
@@ -106,7 +106,7 @@ def find_released_source(
     exclude_csv: str | None = None,
     max_csv: str | None = None,
 ) -> BuildResult:
-    """Find the latest build released to prod for a minor version. Prefers stable, falls back to candidate."""
+    """Find the latest stable build released to prod for a minor version."""
     builds = explorer.get_released_builds(minor_version=minor_version, stage=False)
     if not builds:
         raise ValueError(f"No released builds found for {minor_version}")
@@ -120,9 +120,7 @@ def find_released_source(
             continue
         if channel_released_to_prod(channels=build.channels, channel=CHANNEL_STABLE):
             return extract_released_build_info(build=build, channel=CHANNEL_STABLE)
-        if channel_released_to_prod(channels=build.channels, channel=CHANNEL_CANDIDATE):
-            return extract_released_build_info(build=build, channel=CHANNEL_CANDIDATE)
 
     if required_csv:
-        raise ValueError(f"No build released to prod found for source version {required_csv.lstrip('v')}")
-    raise ValueError(f"No build released to prod found for source {minor_version}")
+        raise ValueError(f"No stable build released to prod found for source version {required_csv.lstrip('v')}")
+    raise ValueError(f"No stable build released to prod found for source {minor_version}")

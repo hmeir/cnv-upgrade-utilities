@@ -171,13 +171,14 @@ def _format_upgrade_paths_md(generated_at: str, versions: dict[str, dict], lates
             lines.append("")
             continue
 
-        lines.append("| Type | Source | Target | Channel |")
-        lines.append("|------|--------|--------|---------|")
+        lines.append("| Type | Source | Source Channel | Target | Target Channel |")
+        lines.append("|------|--------|----------------|--------|----------------|")
         for upgrade_type, path_data in paths.items():
             source_ver = path_data["source"]["version"]
+            source_ch = path_data["source"].get("channel", "")
             target_ver = path_data["target"]["version"]
-            channel = path_data["target"].get("channel", "")
-            lines.append(f"| {upgrade_type} | {source_ver} | {target_ver} | {channel} |")
+            target_ch = path_data["target"].get("channel", "")
+            lines.append(f"| {upgrade_type} | {source_ver} | {source_ch} | {target_ver} | {target_ch} |")
         lines.append("")
 
     return "\n".join(lines)
@@ -206,14 +207,14 @@ def _format_release_checklist_md(generated_at: str, versions: dict[str, dict]) -
         stage_str = "**in stage**" if in_stage else "not in stage"
         prod_str = "**released to prod**" if released else "not released to prod"
 
-        lines.append(f"## {version} -> {target_ver}")
+        lines.append(f"## {version} (target: {target_ver})")
         lines.append("")
         lines.append(f"**Target**: {target_ver} ({bundle}) | channel: {channel} | {stage_str} | {prod_str}")
         lines.append("")
 
         if lanes:
-            lines.append("| Lane | Source | IIB | Channel | Post-Upgrade Suite |")
-            lines.append("|------|--------|-----|---------|-------------------|")
+            lines.append("| Lane | Source | IIB | Source Channel | Post-Upgrade Suite |")
+            lines.append("|------|--------|-----|----------------|-------------------|")
             for lane_name, lane_data in lanes.items():
                 source = lane_data.get("source_version", "")
                 iib = lane_data.get("iib", "")
