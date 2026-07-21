@@ -236,3 +236,125 @@ class TestFindReleasedSource:
         mock_explorer.get_released_builds.return_value = [build]
         with pytest.raises(ValueError, match="No build released to prod"):
             find_released_source(explorer=mock_explorer, minor_version="v4.20")
+
+    def test_newer_candidate_does_not_shadow_older_stable(self, mock_explorer):
+        """CNV-93558: scan all builds for stable-prod before falling back to candidate."""
+        candidate_channels = [make_channel_info(channel="candidate", released_to_prod=True, iib="iib:cand")]
+        stable_channels = [make_channel_info(channel="stable", released_to_prod=True, iib="iib:stable")]
+        newer_candidate = make_released_build(
+            csv_version="v4.18.42",
+            version="v4.18.42.rhel9-4",
+            channels=candidate_channels,
+        )
+        older_stable = make_released_build(
+            csv_version="v4.18.36",
+            version="v4.18.36.rhel9-29",
+            channels=stable_channels,
+        )
+        mock_explorer.get_released_builds.return_value = [newer_candidate, older_stable]
+
+        result = find_released_source(explorer=mock_explorer, minor_version="v4.18", max_csv="4.18.43")
+
+        assert result.version == "4.18.36"
+        assert result.channel == "stable"
+        assert result.iib == "iib:stable"
+
+    def test_prefers_stable_when_same_build_has_both_channels(self, mock_explorer):
+        channels = [
+            make_channel_info(channel="candidate", released_to_prod=True, iib="iib:cand"),
+            make_channel_info(channel="stable", released_to_prod=True, iib="iib:stable"),
+        ]
+        build = make_released_build(
+            csv_version="v4.17.48",
+            version="v4.17.48.rhel9-33",
+            channels=channels,
+        )
+        mock_explorer.get_released_builds.return_value = [build]
+
+        result = find_released_source(explorer=mock_explorer, minor_version="v4.17")
+
+        assert result.channel == "stable"
+        assert result.iib == "iib:stable"
+
+    def test_picks_newest_stable_among_mixed_builds(self, mock_explorer):
+        older_stable = make_released_build(
+            csv_version="v4.16.30",
+            version="v4.16.30.rhel9-1",
+            channels=[make_channel_info(channel="stable", released_to_prod=True, iib="iib:old")],
+        )
+        candidate_only = make_released_build(
+            csv_version="v4.16.40",
+            version="v4.16.40.rhel9-5",
+            channels=[make_channel_info(channel="candidate", released_to_prod=True, iib="iib:cand")],
+        )
+        newest_stable = make_released_build(
+            csv_version="v4.16.38",
+            version="v4.16.38.rhel9-43",
+            channels=[make_channel_info(channel="stable", released_to_prod=True, iib="iib:new")],
+        )
+        # VE returns newest-first; candidate sits between stables.
+        mock_explorer.get_released_builds.return_value = [candidate_only, newest_stable, older_stable]
+
+        result = find_released_source(explorer=mock_explorer, minor_version="v4.16")
+
+        assert result.version == "4.16.38"
+        assert result.channel == "stable"
+        assert result.iib == "iib:new"
+
+    def test_max_csv_skips_newer_stable_and_candidate(self, mock_explorer):
+        too_new_candidate = make_released_build(
+            csv_version="v4.18.42",
+            version="v4.18.42.rhel9-4",
+            channels=[make_channel_info(channel="candidate", released_to_prod=True, iib="iib:cand")],
+        )
+        too_new_stable = make_released_build(
+            csv_version="v4.18.40",
+            version="v4.18.40.rhel9-1",
+            channels=[make_channel_info(channel="stable", released_to_prod=True, iib="iib:new-stable")],
+        )
+        eligible_stable = make_released_build(
+            csv_version="v4.18.36",
+            version="v4.18.36.rhel9-29",
+            channels=[make_channel_info(channel="stable", released_to_prod=True, iib="iib:ok")],
+        )
+        mock_explorer.get_released_builds.return_value = [too_new_candidate, too_new_stable, eligible_stable]
+
+        result = find_released_source(explorer=mock_explorer, minor_version="v4.18", max_csv="4.18.40")
+
+        assert result.version == "4.18.36"
+        assert result.channel == "stable"
+        assert result.iib == "iib:ok"
+
+    def test_candidate_fallback_when_no_stable_prod(self, mock_explorer):
+        candidate_channels = [make_channel_info(channel="candidate", released_to_prod=True, iib="iib:cand")]
+        build = make_released_build(
+            csv_version="v5.0.1",
+            version="v5.0.1.rhel9-1",
+            channels=candidate_channels,
+        )
+        mock_explorer.get_released_builds.return_value = [build]
+
+        result = find_released_source(explorer=mock_explorer, minor_version="v5.0")
+
+        assert result.version == "5.0.1"
+        assert result.channel == "candidate"
+        assert result.iib == "iib:cand"
+
+    def test_candidate_fallback_respects_max_csv(self, mock_explorer):
+        too_new = make_released_build(
+            csv_version="v5.0.3",
+            version="v5.0.3.rhel9-1",
+            channels=[make_channel_info(channel="candidate", released_to_prod=True, iib="iib:new")],
+        )
+        eligible = make_released_build(
+            csv_version="v5.0.1",
+            version="v5.0.1.rhel9-1",
+            channels=[make_channel_info(channel="candidate", released_to_prod=True, iib="iib:ok")],
+        )
+        mock_explorer.get_released_builds.return_value = [too_new, eligible]
+
+        result = find_released_source(explorer=mock_explorer, minor_version="v5.0", max_csv="5.0.2")
+
+        assert result.version == "5.0.1"
+        assert result.channel == "candidate"
+        assert result.iib == "iib:ok"

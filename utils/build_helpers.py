@@ -106,21 +106,34 @@ def find_released_source(
     exclude_csv: str | None = None,
     max_csv: str | None = None,
 ) -> BuildResult:
-    """Find the latest build released to prod for a minor version. Prefers stable, falls back to candidate."""
+    """Find the latest build released to prod for a minor version.
+
+    Two-pass selection (required for release-checklist sources):
+    1. Prefer the newest build with stable released to prod across *all* candidates
+    2. Only if no stable-prod build exists, fall back to candidate released to prod
+
+    A per-build candidate fallback is incorrect: newer candidate-only builds would
+    shadow older stable-prod sources (CNV-93558).
+    """
     builds = explorer.get_released_builds(minor_version=minor_version, stage=False)
     if not builds:
         raise ValueError(f"No released builds found for {minor_version}")
 
-    for build in builds:
+    def _is_eligible(build: ReleasedBuild) -> bool:
         if required_csv and build.csv_version != required_csv:
-            continue
+            return False
         if exclude_csv and build.csv_version.lstrip("v") == exclude_csv.lstrip("v"):
-            continue
+            return False
         if max_csv and Version(build.csv_version.lstrip("v")) >= Version(max_csv.lstrip("v")):
-            continue
-        if channel_released_to_prod(channels=build.channels, channel=CHANNEL_STABLE):
+            return False
+        return True
+
+    for build in builds:
+        if _is_eligible(build) and channel_released_to_prod(channels=build.channels, channel=CHANNEL_STABLE):
             return extract_released_build_info(build=build, channel=CHANNEL_STABLE)
-        if channel_released_to_prod(channels=build.channels, channel=CHANNEL_CANDIDATE):
+
+    for build in builds:
+        if _is_eligible(build) and channel_released_to_prod(channels=build.channels, channel=CHANNEL_CANDIDATE):
             return extract_released_build_info(build=build, channel=CHANNEL_CANDIDATE)
 
     if required_csv:
