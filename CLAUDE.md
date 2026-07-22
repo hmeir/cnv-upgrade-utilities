@@ -91,8 +91,8 @@ API responses -> `extract_filtered_build_info()` (from SuccessfulBuild), `extrac
 ## Version Management
 
 ```python
-SUPPORTED_VERSIONS = ["4.12", "4.14", "4.16", "4.17", "4.18", "4.19", "4.20", "4.21", "4.22", "4.23", "5.0"]
-EOL_VERSIONS = frozenset({"4.13", "4.15"})
+SUPPORTED_VERSIONS = ["4.12", "4.14", "4.16", "4.18", "4.19", "4.20", "4.21", "4.22", "4.23", "5.0"]
+EOL_VERSIONS = frozenset({"4.13", "4.15", "4.17"})
 CROSS_MAJOR_Y_STREAM_SOURCES = {"5.0": ["4.22"]}
 _BLOCKED_Y_STREAM_TARGETS = frozenset()
 _NON_EUS_VERSIONS = frozenset({"5.0"})

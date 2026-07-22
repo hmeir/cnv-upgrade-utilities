@@ -1,10 +1,9 @@
 {
-  "generated_at": "2026-07-21 09:12 UTC",
+  "generated_at": "2026-07-22 07:59 UTC",
   "supported_versions": [
     "4.12",
     "4.14",
     "4.16",
-    "4.17",
     "4.18",
     "4.19",
     "4.20",
@@ -18,8 +17,8 @@
       "target_version": "4.12.27",
       "target_build_info": {
         "version": "4.12.27",
-        "bundle_version": "4.12.27-3",
-        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1181364",
+        "bundle_version": "4.12.27-5",
+        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1182414",
         "channel": "candidate",
         "in_stage": true,
         "released_to_prod": false
@@ -76,11 +75,11 @@
       }
     },
     "4.16": {
-      "target_version": "4.16.40",
+      "target_version": "4.16.41",
       "target_build_info": {
-        "version": "4.16.40",
-        "bundle_version": "4.16.40.rhel9-5",
-        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1174780",
+        "version": "4.16.41",
+        "bundle_version": "4.16.41.rhel9-16",
+        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1182389",
         "channel": "stable",
         "in_stage": true,
         "released_to_prod": false
@@ -109,40 +108,6 @@
         }
       }
     },
-    "4.17": {
-      "target_version": "4.17.54",
-      "target_build_info": {
-        "version": "4.17.54",
-        "bundle_version": "4.17.54.rhel9-4",
-        "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1178363",
-        "channel": "stable",
-        "in_stage": true,
-        "released_to_prod": false
-      },
-      "upgrade_lanes": {
-        "Y stream": {
-          "source_version": "4.16.38",
-          "bundle_version": "4.16.38.rhel9-43",
-          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149686",
-          "channel": "stable",
-          "post_upgrade_suite": "UTS-Marker"
-        },
-        "Z stream": {
-          "source_version": "4.17.48",
-          "bundle_version": "4.17.48.rhel9-33",
-          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149392",
-          "channel": "stable",
-          "post_upgrade_suite": "NONE"
-        },
-        "latest z": {
-          "source_version": "4.17.0",
-          "bundle_version": "4.17.0.rhel9-803",
-          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:840694",
-          "channel": "stable",
-          "post_upgrade_suite": "NONE"
-        }
-      }
-    },
     "4.18": {
       "target_version": "4.18.43",
       "target_build_info": {
@@ -154,13 +119,6 @@
         "released_to_prod": false
       },
       "upgrade_lanes": {
-        "Y stream": {
-          "source_version": "4.17.48",
-          "bundle_version": "4.17.48.rhel9-33",
-          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149392",
-          "channel": "stable",
-          "post_upgrade_suite": "UTS-Marker"
-        },
         "Z stream": {
           "source_version": "4.18.36",
           "bundle_version": "4.18.36.rhel9-29",
@@ -173,7 +131,7 @@
           "bundle_version": "4.16.38.rhel9-43",
           "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149686",
           "channel": "stable",
-          "post_upgrade_suite": "NONE"
+          "post_upgrade_suite": "UTS-Marker"
         },
         "latest z": {
           "source_version": "4.18.0",
@@ -237,9 +195,9 @@
           "post_upgrade_suite": "UTS-Marker"
         },
         "Z stream": {
-          "source_version": "4.20.15",
-          "bundle_version": "4.20.15.rhel9-38",
-          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149389",
+          "source_version": "4.20.21",
+          "bundle_version": "4.20.21.rhel9-10",
+          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1178347",
           "channel": "stable",
           "post_upgrade_suite": "NONE"
         },
@@ -271,16 +229,16 @@
       },
       "upgrade_lanes": {
         "Y stream": {
-          "source_version": "4.20.15",
-          "bundle_version": "4.20.15.rhel9-38",
-          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149389",
+          "source_version": "4.20.21",
+          "bundle_version": "4.20.21.rhel9-10",
+          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1178347",
           "channel": "stable",
           "post_upgrade_suite": "UTS-Marker"
         },
         "Z stream": {
-          "source_version": "4.21.10",
-          "bundle_version": "4.21.10.rhel9-13",
-          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1160141",
+          "source_version": "4.21.13",
+          "bundle_version": "4.21.13.rhel9-7",
+          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1178343",
           "channel": "stable",
           "post_upgrade_suite": "NONE"
         },
@@ -305,9 +263,9 @@
       },
       "upgrade_lanes": {
         "Y stream": {
-          "source_version": "4.21.10",
-          "bundle_version": "4.21.10.rhel9-13",
-          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1160141",
+          "source_version": "4.21.13",
+          "bundle_version": "4.21.13.rhel9-7",
+          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1178343",
           "channel": "stable",
           "post_upgrade_suite": "UTS-Marker"
         },
@@ -319,9 +277,9 @@
           "post_upgrade_suite": "NONE"
         },
         "EUS": {
-          "source_version": "4.20.15",
-          "bundle_version": "4.20.15.rhel9-38",
-          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1149389",
+          "source_version": "4.20.21",
+          "bundle_version": "4.20.21.rhel9-10",
+          "iib": "registry-proxy.engineering.redhat.com/rh-osbs/iib:1178347",
           "channel": "stable",
           "post_upgrade_suite": "NONE"
         },

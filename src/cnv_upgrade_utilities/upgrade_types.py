@@ -16,7 +16,6 @@ SUPPORTED_VERSIONS = [
     "4.12",
     "4.14",
     "4.16",
-    "4.17",
     "4.18",
     "4.19",
     "4.20",
@@ -26,7 +25,7 @@ SUPPORTED_VERSIONS = [
     "5.0",
 ]
 
-EOL_VERSIONS = frozenset({"4.13", "4.15"})
+EOL_VERSIONS = frozenset({"4.13", "4.15", "4.17"})
 
 _SUPPORTED_VERSION_SET = frozenset(SUPPORTED_VERSIONS)
 

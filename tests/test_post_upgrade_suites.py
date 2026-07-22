@@ -31,10 +31,11 @@ class TestGetPostUpgradeSuite:
     def test_eus_z2_y1_eol_returns_marker(self):
         assert get_post_upgrade_suite(UpgradeType.EUS, 2, minor=14) == POST_UPGRADE_SUITE_MARKER
         assert get_post_upgrade_suite(UpgradeType.EUS, 5, minor=16) == POST_UPGRADE_SUITE_MARKER
+        assert get_post_upgrade_suite(UpgradeType.EUS, 2, minor=18) == POST_UPGRADE_SUITE_MARKER
 
     def test_eus_z2_y1_supported_returns_none(self):
         assert get_post_upgrade_suite(UpgradeType.EUS, 2, minor=20) == POST_UPGRADE_SUITE_NONE
-        assert get_post_upgrade_suite(UpgradeType.EUS, 5, minor=18) == POST_UPGRADE_SUITE_NONE
+        assert get_post_upgrade_suite(UpgradeType.EUS, 5, minor=22) == POST_UPGRADE_SUITE_NONE
 
     def test_eus_z2_without_minor_returns_marker(self):
         assert get_post_upgrade_suite(UpgradeType.EUS, 2) == POST_UPGRADE_SUITE_MARKER
