@@ -148,7 +148,7 @@ def negative_paths() -> list[tuple[str, str]]:
         ("4.20", "4.19"),
         ("4.20.5", "4.20.4"),
         ("4.16", "4.19"),
-        ("4.17", "4.19"),
+        ("4.19", "4.21"),
         ("4.20.5", "4.20.5"),
     ]
     eol_paths = _generate_eol_negative_paths()

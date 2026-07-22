@@ -43,7 +43,7 @@ class TestNegativeWithErrorMessages:
 
     def test_odd_eus_error_message(self, explorer):
         with pytest.raises(ValueError, match="EUS upgrade requires both versions to be even"):
-            get_upgrade_jobs_info(explorer, source_version="4.17", target_version="4.19")
+            get_upgrade_jobs_info(explorer, source_version="4.19", target_version="4.21")
 
     def test_dot_zero_cross_minor_is_y_stream(self, explorer):
         """4.19.0 -> 4.20 is a valid Y-stream (source .0 doesn't force latest-z when minors differ)."""
