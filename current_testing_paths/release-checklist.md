@@ -1,10 +1,10 @@
 # Release Checklist
 
-Generated: 2026-07-22 07:59 UTC | Versions: 10
+Generated: 2026-07-27 13:03 UTC | Versions: 10
 
 ## 4.12 (target: 4.12.27)
 
-**Target**: 4.12.27 (4.12.27-5) | channel: candidate | **in stage** | not released to prod
+**Target**: 4.12.27 (4.12.27-11) | channel: candidate | **in stage** | not released to prod
 
 | Lane | Source | IIB | Source Channel | Post-Upgrade Suite |
 |------|--------|-----|----------------|-------------------|
@@ -72,9 +72,9 @@ Generated: 2026-07-22 07:59 UTC | Versions: 10
 | Z stream | 4.21.13 | iib:1178343 | stable | NONE |
 | latest z | 4.21.0 | iib:1104286 | stable | NONE |
 
-## 4.22 (target: 4.22.3)
+## 4.22 (target: 4.22.4)
 
-**Target**: 4.22.3 (4.22.3.rhel9-26) | channel: stable | **in stage** | not released to prod
+**Target**: 4.22.4 (4.22.4.rhel9-9) | channel: stable | **in stage** | not released to prod
 
 | Lane | Source | IIB | Source Channel | Post-Upgrade Suite |
 |------|--------|-----|----------------|-------------------|
@@ -85,7 +85,7 @@ Generated: 2026-07-22 07:59 UTC | Versions: 10
 
 ## 4.23 (target: 4.23.0)
 
-**Target**: 4.23.0 (4.23.0.rhel9-24) | channel: candidate | **in stage** | not released to prod
+**Target**: 4.23.0 (4.23.0.rhel9-30) | channel: candidate | **in stage** | not released to prod
 
 | Lane | Source | IIB | Source Channel | Post-Upgrade Suite |
 |------|--------|-----|----------------|-------------------|
@@ -93,7 +93,7 @@ Generated: 2026-07-22 07:59 UTC | Versions: 10
 
 ## 5.0 (target: 5.0.0)
 
-**Target**: 5.0.0 (5.0.0.rhel9-18) | channel: candidate | **in stage** | not released to prod
+**Target**: 5.0.0 (5.0.0.rhel9-28) | channel: candidate | **in stage** | not released to prod
 
 | Lane | Source | IIB | Source Channel | Post-Upgrade Suite |
 |------|--------|-----|----------------|-------------------|
