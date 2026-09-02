@@ -9,6 +9,7 @@ from cnv_upgrade_utilities.release_checklist_upgrade_plan import (
     fetch_target_version,
     get_upgrade_paths_info,
 )
+from utils.constants import CHANNEL_CANDIDATE
 from utils.models import BuildResult
 
 
@@ -94,11 +95,32 @@ class TestFetchTargetVersion:
         )
         mock_explorer.get_successful_builds_by_version.side_effect = [
             [make_successful_build(released_to_prod=True)],  # stable + stage (all released)
-            [],  # stable (empty)
-            [candidate_build],  # candidate
+            [],  # stable stage=True (skip path)
+            [],  # stable stage=False
+            [candidate_build],  # candidate stage=True
         ]
         result = fetch_target_version(mock_explorer, Version("4.20.3"), skip_target_check=True)
         assert result.channel == "candidate"
+
+    def test_skip_target_check_candidate_in_stage_only(self, mock_explorer):
+        """Candidate builds visible only with stage=True must be found (e.g. 4.22.8)."""
+        candidate_build = make_successful_build(
+            cnv_build="v4.22.8.rhel9-11",
+            iib="iib:2",
+            channel="candidate",
+            in_stage=True,
+            released_to_prod=False,
+        )
+
+        def side_effect(version, channel=None, stage=None, max_entries=None):
+            if channel == CHANNEL_CANDIDATE and stage is True:
+                return [candidate_build]
+            return []
+
+        mock_explorer.get_successful_builds_by_version.side_effect = side_effect
+        result = fetch_target_version(mock_explorer, Version("4.22.8"), skip_target_check=True)
+        assert result.channel == "candidate"
+        assert result.version == "4.22.8"
 
 
 class TestFetchSourceVersion:

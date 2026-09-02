@@ -66,7 +66,8 @@ def fetch_target_version(
     Fetch target version build info using GetSuccessfulBuildsByVersion.
 
     By default, target must be in stable stage but NOT yet released to prod.
-    If skip_target_check is True, accepts any stable build (including already released).
+    If skip_target_check is True, accepts any stable or candidate build
+    (including already released, or candidate-only in stage).
     """
     version = str(target_version)
 
@@ -75,14 +76,16 @@ def fetch_target_version(
         return result
 
     if skip_target_check:
+        # Stage must be explicit: omitting it excludes in-stage-only builds (API default).
         for channel in (CHANNEL_STABLE, CHANNEL_CANDIDATE):
-            builds = explorer.get_successful_builds_by_version(version=version, channel=channel)
-            if builds:
-                LOGGER.warning(
-                    f"Target version {version} is not in stable stage, "
-                    f"using latest {channel} build (--skip-target-check)"
-                )
-                return extract_filtered_build_info(build=builds[0], version=version)
+            for stage in (True, False):
+                builds = explorer.get_successful_builds_by_version(version=version, channel=channel, stage=stage)
+                if builds:
+                    LOGGER.warning(
+                        f"Target version {version} is not in stable stage, "
+                        f"using latest {channel} build (--skip-target-check)"
+                    )
+                    return extract_filtered_build_info(build=builds[0], version=version)
         raise ValueError(f"No stable or candidate build found for target version {version}")
 
     builds = explorer.get_successful_builds_by_version(version=version, channel=CHANNEL_STABLE)
