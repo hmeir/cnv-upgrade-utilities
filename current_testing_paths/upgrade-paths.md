@@ -1,6 +1,6 @@
 # Upgrade Paths
 
-Generated: 2026-09-02 09:43 UTC | Versions: 11 | Paths: 31
+Generated: 2026-09-08 07:35 UTC | Versions: 11 | Paths: 31
 
 ## 4.12 (latest z: 31)
 
@@ -9,13 +9,13 @@ Generated: 2026-09-02 09:43 UTC | Versions: 11 | Paths: 31
 | z_stream | 4.12.28 | stable | 4.12.31 | candidate |
 | latest_z | 4.12.0 | stable | 4.12.31 | candidate |
 
-## 4.14 (latest z: 29)
+## 4.14 (latest z: 30)
 
 | Type | Source | Source Channel | Target | Target Channel |
 |------|--------|----------------|--------|----------------|
-| z_stream | 4.14.28 | stable | 4.14.29 | candidate |
-| latest_z | 4.14.0 | stable | 4.14.29 | candidate |
-| eus | 4.12.28 | stable | 4.14.28 | stable |
+| z_stream | 4.14.28 | stable | 4.14.29 | stable |
+| latest_z | 4.14.0 | stable | 4.14.29 | stable |
+| eus | 4.12.28 | stable | 4.14.29 | stable |
 
 ## 4.16 (latest z: 46)
 
@@ -67,14 +67,14 @@ Generated: 2026-09-02 09:43 UTC | Versions: 11 | Paths: 31
 | latest_z | 4.21.0 | stable | 4.21.18 | candidate |
 | y_stream | 4.20.24 | stable | 4.21.17 | stable |
 
-## 4.22 (latest z: 8)
+## 4.22 (latest z: 9)
 
 | Type | Source | Source Channel | Target | Target Channel |
 |------|--------|----------------|--------|----------------|
-| z_stream | 4.22.6 | stable | 4.22.7 | stable |
-| latest_z | 4.22.0 | stable | 4.22.7 | stable |
-| y_stream | 4.21.17 | stable | 4.22.7 | stable |
-| eus | 4.20.24 | stable | 4.22.7 | stable |
+| z_stream | 4.22.6 | stable | 4.22.8 | stable |
+| latest_z | 4.22.0 | stable | 4.22.8 | stable |
+| y_stream | 4.21.17 | stable | 4.22.8 | stable |
+| eus | 4.20.24 | stable | 4.22.8 | stable |
 
 ## 4.23 (latest z: 0)
 

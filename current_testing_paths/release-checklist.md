@@ -1,14 +1,23 @@
 # Release Checklist
 
-Generated: 2026-09-02 09:43 UTC | Versions: 10
+Generated: 2026-09-08 07:35 UTC | Versions: 11
 
-## 4.14 (target: 4.14.27)
+## 4.12 (target: 4.12.31)
 
-**Target**: 4.14.27 (4.14.27.rhel9-4) | channel: stable | **in stage** | not released to prod
+**Target**: 4.12.31 (4.12.31-9) | channel: candidate | **in stage** | not released to prod
 
 | Lane | Source | IIB | Source Channel | Post-Upgrade Suite |
 |------|--------|-----|----------------|-------------------|
-| Z stream | 4.14.24 | iib:1174487 | stable | NONE |
+| Z stream | 4.12.28 | iib:1194418 | stable | NONE |
+| latest z | 4.12.0 | iib:399135 | stable | NONE |
+
+## 4.14 (target: 4.14.29)
+
+**Target**: 4.14.29 (4.14.29.rhel9-15) | channel: stable | **in stage** | not released to prod
+
+| Lane | Source | IIB | Source Channel | Post-Upgrade Suite |
+|------|--------|-----|----------------|-------------------|
+| Z stream | 4.14.28 | iib:1194402 | stable | NONE |
 | EUS | 4.12.28 | iib:1194418 | stable | UTS-Marker |
 | latest z | 4.14.0 | iib:611376 | stable | NONE |
 
@@ -74,9 +83,9 @@ Generated: 2026-09-02 09:43 UTC | Versions: 10
 | Z stream | 4.21.13 | iib:1178343 | stable | NONE |
 | latest z | 4.21.0 | iib:1104286 | stable | NONE |
 
-## 4.22 (target: 4.22.7)
+## 4.22 (target: 4.22.8)
 
-**Target**: 4.22.7 (4.22.7.rhel9-18) | channel: stable | **in stage** | not released to prod
+**Target**: 4.22.8 (4.22.8.rhel9-11) | channel: stable | **in stage** | not released to prod
 
 | Lane | Source | IIB | Source Channel | Post-Upgrade Suite |
 |------|--------|-----|----------------|-------------------|
@@ -87,7 +96,7 @@ Generated: 2026-09-02 09:43 UTC | Versions: 10
 
 ## 4.23 (target: 4.23.0)
 
-**Target**: 4.23.0 (4.23.0.rhel9-56) | channel: candidate | not in stage | not released to prod
+**Target**: 4.23.0 (4.23.0.rhel9-69) | channel: candidate | **in stage** | not released to prod
 
 | Lane | Source | IIB | Source Channel | Post-Upgrade Suite |
 |------|--------|-----|----------------|-------------------|
@@ -95,7 +104,7 @@ Generated: 2026-09-02 09:43 UTC | Versions: 10
 
 ## 5.0 (target: 5.0.0)
 
-**Target**: 5.0.0 (5.0.0.rhel9-54) | channel: candidate | not in stage | not released to prod
+**Target**: 5.0.0 (5.0.0.rhel9-68) | channel: candidate | **in stage** | not released to prod
 
 | Lane | Source | IIB | Source Channel | Post-Upgrade Suite |
 |------|--------|-----|----------------|-------------------|
