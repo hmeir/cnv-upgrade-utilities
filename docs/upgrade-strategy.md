@@ -44,7 +44,7 @@ For upgrade testing:
 
 | Supported                                                          | EOL (not tested) |
 | :----------------------------------------------------------------: | :--------------: |
-| 4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20, 4.21, 4.22, 4.23, 5.0 | 4.13, 4.15       |
+| 4.12, 4.14, 4.16, 4.18, 4.19, 4.20, 4.21, 4.22, 4.23, 5.0 | 4.13, 4.15, 4.17 |
 
 
 **EOL impact:**
@@ -102,8 +102,7 @@ Which upgrade types apply to each supported version (at z >= 2, where all applic
 | 4.12   | --              | yes      | yes      | --  |
 | 4.14   | --              | yes      | yes      | yes |
 | 4.16   | --              | yes      | yes      | yes |
-| 4.17   | yes             | yes      | yes      | --  |
-| 4.18   | yes             | yes      | yes      | yes |
+| 4.18   | --              | yes      | yes      | yes |
 | 4.19   | yes             | yes      | yes      | --  |
 | 4.20   | yes             | yes      | yes      | yes |
 | 4.21   | yes             | yes      | yes      | --  |
@@ -117,6 +116,7 @@ Notes:
 - 4.12: no Y-stream (4.11 not supported), no EUS (4.10 not supported)
 - 4.14: no Y-stream (4.13 is EOL), EUS from 4.12 fills the cross-version gap
 - 4.16: no Y-stream (4.15 is EOL), EUS from 4.14 fills the cross-version gap
+- 4.18: no Y-stream (4.17 is EOL), EUS from 4.16 fills the cross-version gap
 - 4.23: Y-stream from 4.22, developed in parallel with 5.0
 - 5.0: Y-stream from 4.22 (cross-major), not EUS
 - EUS only between even-numbered versions

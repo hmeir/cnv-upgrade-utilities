@@ -141,7 +141,7 @@ class TestDetermineUpgradeType:
         assert determine_upgrade_type("4.16.0", "4.18") == UpgradeType.EUS
 
     def test_dot_zero_source_cross_minor_is_y_stream(self):
-        assert determine_upgrade_type("4.16.0", "4.17") == UpgradeType.Y_STREAM
+        assert determine_upgrade_type("4.18.0", "4.19") == UpgradeType.Y_STREAM
 
     def test_dot_zero_bundle_cross_minor_is_eus(self):
         assert determine_upgrade_type("4.16.0.rhel9-2746", "4.18") == UpgradeType.EUS
@@ -153,8 +153,10 @@ class TestIsEolVersion:
         [
             ("4.13", True),
             ("4.15", True),
+            ("4.17", True),
             ("4.13.5", True),
             ("4.15.10", True),
+            ("4.17.20", True),
             ("4.12", False),
             ("4.16", False),
             ("4.20", False),
@@ -214,8 +216,8 @@ class TestGetApplicableUpgradeTypes:
         assert UpgradeType.Y_STREAM not in result
         assert UpgradeType.EUS in result
 
-    def test_4_17_yes_y_stream_no_eus(self):
-        result = get_applicable_upgrade_types(target_minor=17, target_z=0)
+    def test_4_19_yes_y_stream_no_eus(self):
+        result = get_applicable_upgrade_types(target_minor=19, target_z=0)
         assert UpgradeType.Y_STREAM in result
         assert UpgradeType.EUS not in result
 
@@ -272,16 +274,16 @@ class TestUpgradeTypeAttributes:
 
 class TestVersionConstants:
     def test_supported_versions_match_expected(self):
-        expected = ["4.12", "4.14", "4.16", "4.17", "4.18", "4.19", "4.20", "4.21", "4.22", "4.23", "5.0"]
+        expected = ["4.12", "4.14", "4.16", "4.18", "4.19", "4.20", "4.21", "4.22", "4.23", "5.0"]
         assert SUPPORTED_VERSIONS == expected
 
     def test_eol_versions_match_expected(self):
-        expected = {"4.13", "4.15"}
+        expected = {"4.13", "4.15", "4.17"}
         assert EOL_VERSIONS == expected
 
     def test_no_overlap_supported_and_eol(self):
         assert not set(SUPPORTED_VERSIONS) & EOL_VERSIONS
 
     def test_skip_y_stream_versions_match_expected(self):
-        expected = frozenset({"4.12", "4.14", "4.16"})
+        expected = frozenset({"4.12", "4.14", "4.16", "4.18"})
         assert SKIP_Y_STREAM_VERSIONS == expected
