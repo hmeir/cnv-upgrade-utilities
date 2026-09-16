@@ -35,7 +35,7 @@ class CnvVersionExplorer:
         request_timeout: int = DEFAULT_REQUEST_TIMEOUT,
         retry_timeout: int = DEFAULT_RETRY_TIMEOUT,
     ):
-        self._url = url or os.environ.get(ENV_VERSION_EXPLORER_URL) or DEFAULT_VERSION_EXPLORER_URL
+        self._url = (url or os.environ.get(ENV_VERSION_EXPLORER_URL) or DEFAULT_VERSION_EXPLORER_URL).rstrip("/")
         self.request_timeout = request_timeout
         self.retry_timeout = retry_timeout
         self._session: requests.Session | None = None
