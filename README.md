@@ -44,7 +44,7 @@ uv sync --extra dev
 
 | Supported | EOL (not tested) |
 |---|---|
-| 4.12, 4.14, 4.16, 4.17, 4.18, 4.19, 4.20, 4.21, 4.22, 4.23, 5.0 | 4.13, 4.15 |
+| 4.12, 4.14, 4.16, 4.18, 4.19, 4.20, 4.21, 4.22, 4.23, 5.0 | 4.13, 4.15, 4.17 |
 
 See [Upgrade Strategy](docs/upgrade-strategy.md) for how versions, upgrade types, and testing strategy work together.
 
