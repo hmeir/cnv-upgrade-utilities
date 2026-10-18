@@ -1,0 +1,74 @@
+stages:
+  - lint
+  - test
+  - e2e
+  - generate
+
+default:
+  image: python:3.12
+  tags:
+    - itup-alm-x86
+  before_script:
+    - pip install uv
+    - uv sync --extra dev
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .venv/
+      - .tox/
+
+# ── Lint ──────────────────────────────────────────
+
+lint:
+  stage: lint
+  script:
+    - uv run tox -e lint
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+# ── Tests ─────────────────────────────────────────
+
+unit-tests:
+  stage: test
+  script:
+    - uv python install 3.12 3.14
+    - uv run tox -e py312,py314,coverage
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+security:
+  stage: test
+  script:
+    - uv run tox -e security
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+# ── E2E (VPN-dependent — the reason for GitLab) ──
+
+e2e:
+  stage: e2e
+  script:
+    - uv run tox -e e2e
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+fbc:
+  stage: e2e
+  script:
+    - uv run tox -e fbc
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+# ── Snapshot generation (main + schedule only) ────
+
+generate-snapshots:
+  stage: generate
+  script:
+    - uv run tox -e generate
+  artifacts:
+    paths:
+      - current_testing_paths/
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
